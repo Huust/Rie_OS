@@ -93,3 +93,53 @@ lgdt [gdt_ptr]  ;here to update gdt address
 
 
 
+;------------------加载内核-----------------------
+;内核文件名为kernel.bin初步暂定存放在９扇区
+;内核加载分为１从磁盘载入２按照elf格式展开
+;我们的内核加载放在分页机制开启前；因此这里会以函数的形式存在
+;1MB空间中0x7e00~0x9fbff空闲，因此我们把内核镜像加载到0x70000
+KERNEL_BASE_ADD equ 0x70000
+PT_NULL equ 0
+
+distribute_kernel:
+;reset register 
+xor eax,eax
+xor ebx,ebx
+xor ecx,ecx
+xor edx,edx
+;read info in elf
+mov ebx,[KERNEL_BASE_ADD + 28]
+add ebx,KERNEL_BASE_ADD ;ebx被更改为第一个program header的地址
+mov dx,[KERNEL_BASE_ADD + 42]   ;entry size
+mov cx,[KERNEL_BASE_ADD + 44]   ;program header number
+
+.handle_segment:
+cmp byte [ebx+0],PT_NULL
+je .PT_NULL_HANDLER    
+;创建一个类似strcpy的函数
+push dword [ebx + 16] 
+mov eax,[ebx + 4]
+add eax,KERNEL_BASE_ADD
+push eax
+push dword [ebx + 8]
+call sim_strcpy
+add esp 12
+.PT_NULL_HANDLER:   ;语句块复用trick：可以同时用作正常执行或是je成功的跳转区
+    add ebx,edx
+loop .handle_segment
+ret
+
+sim_strcpy:
+push ebp
+mov ebp esp
+push ecx
+mov ds,cs
+mov es,ds
+mov ecx,[ebp+16]
+mov esi,[ebp+8]
+mov edi,[ebp+4]
+cld
+rep movsb
+pop ecx
+pop ebp
+ret
