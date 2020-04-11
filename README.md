@@ -11,3 +11,7 @@ Just for fun,a unix-like toy operating system.
 ## update date:2020-04-08(second commit)
 增加了页表，开启了虚拟内存 <br>
 将gdt搬运到了高１GB地址，放入内核空间<br>
+
+## update date:2020-04-11
+读取elf文件头，将内核文件的segments按照program header进行部署<br>
+现在内核只有一个while(1)；之后添加类printf函数后会整体编译debug一遍<br>
