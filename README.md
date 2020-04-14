@@ -15,3 +15,7 @@ Just for fun,a unix-like toy operating system.
 ## update date:2020-04-11
 读取elf文件头，将内核文件的segments按照program header进行部署<br>
 现在内核只有一个while(1)；之后添加类printf函数后会整体编译debug一遍<br>
+
+## update date:2020-04-14
+添加了rie_putchar，主要考虑了普通字符打印和特殊字符如*回车换行、后退、空格* <br>
+**但是还没有添加roll_screen的功能，不打算使用显示地址寄存器的功能而是直接暴力刷新**
