@@ -103,7 +103,6 @@ mov es,ax
 mov ax,SELECTOR_DATA
 mov gs,ax
 
-
 mov byte [es:80],"L"
 mov byte [es:81],0x07
 mov byte [es:82],"o"
