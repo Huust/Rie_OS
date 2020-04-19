@@ -2,7 +2,7 @@
 ;update date:2020-03-30
 ;second update:2020-04-16
 LOADER_IN_MEM equ 0x9000    ;loader.asm will be loaded from 0x80000
-LOADER_START_SECTOR equ 0x02  ;loader.asm in disk
+LOADER_START_SECTOR equ 0x02  ;loader.asm in disk;mbr is set in sector 0
 
 
 section mbr vstart=0x7c00:
@@ -49,11 +49,11 @@ loadin_loader:
 ;0x1f2:number of disk sections to write   0x1f3-0x1f5:LBA0-23   
 ;0x1f6:LBA24-27   0x1f7:command&status register
 mov dx,0x1f2
-mov al,1
+mov al,4    ;1-->4,考虑到loader的大小超过了512kb
 out dx,al
 
 mov dx,0x1f3
-mov al,3
+mov al,2
 out dx,al
 
 mov dx,0x1f4
@@ -65,7 +65,7 @@ mov al,0
 out dx,al
 
 mov dx,0x1f6
-mov al,0x0E
+mov al,0xe0
 out dx,al
 
 mov dx,0x1f7
@@ -75,14 +75,13 @@ out dx,al
 ;采用轮询方法等待状态寄存器(0x17f端口)3,7位满足要求
 .QuestForRead:
 in al,dx
-mov bl,0x88 
-and bl,al
-cmp bl,0x08
+and al,0x88 
+cmp al,0x08
 jnz .QuestForRead
 
 mov bx,LOADER_IN_MEM
 mov dx,0x1f0
-mov cx,256
+mov cx,1024 ;256-->1024,考虑到loader的大小超过了512kb
 
 ;将读取的数据写入内存
 .WriteToMem:
