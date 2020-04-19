@@ -1,145 +1,248 @@
 ;loader update date:2020-04-02
-;in this loader,we need to:create gdt||open A20 address||set PE = 1
-;                       create page table||use virtual memory
+;loader update date:2020-04-19
+;in loader.asm,we need to:
+;create gdt||open A20 address||set PE = 1
+;create page table||use virtual memory
+;load the kernel      
 
-;初始化保护模式之前先显示点东西通知下
-CREATE_GDT:
-            gdt1_empty:
-            dd 0x00000000
-            dd 0x00000000
-            gdt2_code:
+LOADER_IN_MEM equ 0x9000  
+LOADER_START_SECTOR equ 0x02
+
+section loader vstart=LOADER_IN_MEM
+
+DESC_G_4K equ 1_00000000000000000000000b
+DESC_D_32 equ 1_0000000000000000000000b
+DESC_L equ 0_000000000000000000000b
+DESC_AVL equ 0_00000000000000000000b
+DESC_LIMIT_CODE2 equ 1111_0000000000000000b
+DESC_LIMIT_DATA2 equ DESC_LIMIT_CODE2
+DESC_LIMIT_VIDEO2 equ 0000_000000000000000b
+DESC_P equ 1_000000000000000b
+DESC_DPL_0 equ 00_0000000000000b
+DESC_DPL_1 equ 01_0000000000000b
+DESC_DPL_2 equ 10_0000000000000b
+DESC_DPL_3 equ 11_0000000000000b
+DESC_S_CODE equ 1_000000000000b
+DESC_S_DATA equ DESC_S_CODE
+DESC_S_sys equ 0_000000000000b
+DESC_TYPE_CODE equ 1000_00000000b
+DESC_TYPE_DATA equ 0010_00000000b
+;----------------
+;desc_code_high4
+;----------------
+DESCRIPTOR_CODE_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 + \
+DESC_L + DESC_AVL + DESC_LIMIT_CODE2 + \
+DESC_P+DESC_DPL_0 + DESC_S_CODE +\
+DESC_TYPE_CODE + 0x00
+;----------------
+;desc_data_high4
+;----------------
+DESCRIPTOR_DATA_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 +\
+DESC_L + DESC_AVL + DESC_LIMIT_DATA2 + \
+DESC_P + DESC_DPL_0 + DESC_S_DATA + \
+DESC_TYPE_DATA + 0x00
+;----------------
+;desc_video_high4
+;----------------
+DESCRIPTOR_VIDEO_HIGH4 equ (0x00 << 24) + DESC_G_4K + DESC_D_32 +\
+DESC_L + DESC_AVL + DESC_LIMIT_VIDEO2 + DESC_P + \
+DESC_DPL_0 + DESC_S_DATA + DESC_TYPE_DATA + 0x00
+;----------------
+;selector list
+;----------------
+SELECTOR_CODE equ 0000_0000_0000_1000B
+SELECTOR_DATA equ 0000_0000_0001_0000B
+SELECTOR_VIDEO equ 0000_0000_0001_1000B
+
+;-------------实模式过渡到保护模式-------------
+jmp gdt_init
+
+GDT_BASE:
+            ;gdt1_empty
+            dd 0
+            dd 0
+            ;gdt2_code
             dd 0x0000FFFF
-            dd DESC_CODE_HIGH4
-            gdt3_data:
+            dd DESCRIPTOR_CODE_HIGH4
+            ;gdt3_data
             dd 0x0000FFFF
-            dd DESC_DATA_HIGH4
-            gdt4_video:
+            dd DESCRIPTOR_DATA_HIGH4
+            ;gdt4_video 
             dd 0x80000007
-            dd DESC_VIDEO_HIGH4
+            dd (DESCRIPTOR_VIDEO_HIGH4|1011B)   ;原来地址写错了这里用按位或做补正
             ;最后预留60个段描述符空位
             times 60 dq 0
             ;创建selector
-            gdt_size equ $-CREATE_GDT
-            gdt_address equ CREATE_GDT
-            gdt_limit equ gdt_size-1
+            GDT_LIMIT equ ($-GDT_BASE-1)
 
-            SELECTOR_CODE equ 0000_0000_0000_1000B
-            SELECTOR_DATA equ 0000_0000_0001_0000B
-            SELECTOR_VIDEO equ 0000_0000_0001_1000B
-            ;看到过更好的实现方法，是将一些宏放到.inc中
-            ; SELECTOR_CODE equ (0x0001<<3) + TI_GDT + RPL0
-            ; SELECTOR_DATA equ (0x0002<<3) + TI_GDT + RPL0
-            ; SELECTOR_VIDEO equ (0x0003<<3) + TI_GDT + RPL0
+gdt_ptr dw GDT_LIMIT
+        dd GDT_BASE
 
-            ;以下创建选择子的方法没有任何意义；因为选择子交给段寄存器，在loader中是不需要占用内存的
-            ; create_selector:
-            ; dw 0000_0000_0000_1000B
-            ; dw 0000_0000_0001_0000B
-            ; dw 0000_0000_0001_1000B
-            
-
-
-
-WRITE_TO_GDTR:
-            dw  gdt_limit   ;limit界限即为size_offset
-            dd  gdt_address
-
-
-
+gdt_init:
 ;打开a20地址线,初始化gdt，pe位置1
 in al,0x92
-or al,0000_0001B
+or al,0000_0010B
 out 0x92,al
-
-lgdt [WRITE_TO_GDTR]
-
+;lgdt将gdt地址载入寄存器
+lgdt [gdt_ptr]
+;更改cr0寄存器，开启保护模式
 mov eax,cr0
 or eax,0x00000001
 mov cr0,eax
 
+jmp dword SELECTOR_CODE:p_mode_start    ;刷新流水线；更新CS的值
+
 ;涉及loader开启保护模式后显示部分的内容
-;主要就是利用显卡打印一些字符通知已经进入保护模式了
+[bits 32]
+p_mode_start:
+;寄存器初始化
+mov ax,SELECTOR_DATA
+mov ds,ax
+mov ax,SELECTOR_VIDEO
+mov es,ax
+mov ax,SELECTOR_DATA
+mov gs,ax
 
 
-
+mov byte [es:80],"L"
+mov byte [es:81],0x07
+mov byte [es:82],"o"
+mov byte [es:83],0x07
+mov byte [es:84],"a"
+mov byte [es:85],0x07
+mov byte [es:86],"d"
+mov byte [es:87],0x07
+mov byte [es:88],"e"
+mov byte [es:89],0x07
+mov byte [es:90],"r"
+mov byte [es:91],0x07
 
 ;------------------为页表的开启做准备-----------------------
 ;流程：创建页目录表和页表；cr3寄存器存放页目录表基址；cr0寄存器pg位置位，开启页表
 ;最高1G的size分配给内核，低3G分配给用户
 ;最后一个目录项指向PDT本身的起始地址
-set_up_page vstart = 0x100000:
-;allocate mem
-dd (0x101000 || 111B)
-times 766 dd 0x00
-dd (0x101000 || 111B)
-times 256 dd 0x00
-dd (0x00 || 111B)
-times 1023 dd 0x00
-;cr3 load address
-mov eax,cr3
-or eax,set_up_page
-mov cr3,eax
-;reload gdt
-sgdt [gdt_ptr]
-mov ebx, [gdt_ptr + 2]
-or dword [ebx + 0x18 + 4], 0xc0000000
-add dword [gdt_ptr + 2], 0xc0000000
-add esp, 0xc0000000
-;set pg in cr0,paging begin
-mov eax,cr0
-or eax,(1B<<31)
-mov cr0,eax
-lgdt [gdt_ptr]  ;here to update gdt address
+;PDE_BASE_ADD equ 0x100000   ;0x100000=0xfffff+1,也就是高于1MB地址空间的第一个位置
+;PTE_BASE_ADD equ 0x101000   ;第一个页表的位置
+;--------初始化pde---------
+; .pde_init:
+; mov ecx,4096
+; mov esi,0
+; mov byte [PDE_BASE_ADD + esi],0
+; inc esi
+; loop .pde_init
+; mov eax,PTE_BASE_ADD
+; or eax,(111B)
+; mov ebx,PDE_BASE_ADD
+; mov [ebx],eax
+; ;3GB开始的另一个PDE也要指向第一个页表
+; mov [ebx+4*768],eax
+
+; .pde_additional_init_1:
+; mov ecx,(767)
+; add eax,0x1000
+; add ebx,4
+; mov [ebx],eax
+; loop .pde_additional_init_1
+; add eax,0x1000
+; add ebx,4
+; .pde_additional_init_2:
+; mov ecx,(254)
+; add eax,0x1000
+; add ebx,4
+; mov [ebx],eax
+; loop .pde_additional_init_2
 
 
+; ;--------初始化pte---------
+; mov ecx,256
+; mov ebx,PTE_BASE_ADD
+; mov eax,0
+; or eax,(111B)
+; .pte_init:
+; mov [ebx],eax
+; add ebx,4
+; add eax,0x1000
+; loop .pte_init
 
+; ;cr3 load address
+; mov eax,cr3
+; or eax,PDE_BASE_ADD
+; mov cr3,eax
+; ;reload gdt,也就是说把gdt中的段描述符加3GB使得开启页表后的虚拟地址是最高１GB的地址
+; sgdt [WRITE_TO_GDTR]
+; mov ebx, [WRITE_TO_GDTR + 2]
+; or dword [ebx + 0x18 + 4], 0xc0000000
+; add dword [WRITE_TO_GDTR + 2], 0xc0000000
+; add esp, 0xc0000000
+; ;set pg in cr0,paging begin
+; mov eax,cr0
+; or eax,(1B<<31)
+; mov cr0,eax
+; lgdt [WRITE_TO_GDTR]  ;here to update gdt address
+
+; ;通过打印判断是否正常工作
+
+; mov byte [es:160],"p"
+; mov byte [es:161],0x07
+; mov byte [es:162],"a"
+; mov byte [es:163],0x07
+; mov byte [es:164],"g"
+; mov byte [es:165],0x07
+; mov byte [es:166],"i"
+; mov byte [es:167],0x07
+; mov byte [es:168],"n"
+; mov byte [es:169],0x07
+; mov byte [es:170],"g"
+; mov byte [es:171],0x07
+
+; jmp $
 ;------------------加载内核-----------------------
 ;内核文件名为kernel.bin初步暂定存放在９扇区
 ;内核加载分为１从磁盘载入２按照elf格式展开
 ;我们的内核加载放在分页机制开启前；因此这里会以函数的形式存在
 ;1MB空间中0x7e00~0x9fbff空闲，因此我们把内核镜像加载到0x70000
-KERNEL_BASE_ADD equ 0x70000
-PT_NULL equ 0
+; KERNEL_BASE_ADD equ 0x70000
+; PT_NULL equ 0
 
-distribute_kernel:
-;reset register 
-xor eax,eax
-xor ebx,ebx
-xor ecx,ecx
-xor edx,edx
-;read info in elf
-mov ebx,[KERNEL_BASE_ADD + 28]
-add ebx,KERNEL_BASE_ADD ;ebx被更改为第一个program header的地址
-mov dx,[KERNEL_BASE_ADD + 42]   ;entry size
-mov cx,[KERNEL_BASE_ADD + 44]   ;program header number
+; distribute_kernel:
+; ;reset register 
+; xor eax,eax
+; xor ebx,ebx
+; xor ecx,ecx
+; xor edx,edx
+; ;read info in elf
+; mov ebx,[KERNEL_BASE_ADD + 28]
+; add ebx,KERNEL_BASE_ADD ;ebx被更改为第一个program header的地址
+; mov dx,[KERNEL_BASE_ADD + 42]   ;entry size
+; mov cx,[KERNEL_BASE_ADD + 44]   ;program header number
 
-.handle_segment:
-cmp byte [ebx+0],PT_NULL
-je .PT_NULL_HANDLER    
-;创建一个类似strcpy的函数
-push dword [ebx + 16] 
-mov eax,[ebx + 4]
-add eax,KERNEL_BASE_ADD
-push eax
-push dword [ebx + 8]
-call sim_strcpy
-add esp 12
-.PT_NULL_HANDLER:   ;语句块复用trick：可以同时用作正常执行或是je成功的跳转区
-    add ebx,edx
-loop .handle_segment
-ret
+; .handle_segment:
+; cmp byte [ebx+0],PT_NULL
+; je .PT_NULL_HANDLER    
+; ;创建一个类似strcpy的函数
+; push dword [ebx + 16] 
+; mov eax,[ebx + 4]
+; add eax,KERNEL_BASE_ADD
+; push eax
+; push dword [ebx + 8]
+; call sim_strcpy
+; add esp 12
+; .PT_NULL_HANDLER:   ;语句块复用trick：可以同时用作正常执行或是je成功的跳转区
+;     add ebx,edx
+; loop .handle_segment
+; ret
 
-sim_strcpy:
-push ebp
-mov ebp esp
-push ecx
-mov ds,cs
-mov es,ds
-mov ecx,[ebp+16]
-mov esi,[ebp+8]
-mov edi,[ebp+4]
-cld
-rep movsb
-pop ecx
-pop ebp
-ret
+; sim_strcpy:
+; push ebp
+; mov ebp esp
+; push ecx
+; mov ds,cs
+; mov es,ds
+; mov ecx,[ebp+16]
+; mov esi,[ebp+8]
+; mov edi,[ebp+4]
+; cld
+; rep movsb
+; pop ecx
+; pop ebp
+; ret
