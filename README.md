@@ -19,3 +19,6 @@ Just for fun,a unix-like toy operating system.
 ## update date:2020-04-14
 添加了rie_putchar，主要考虑了普通字符打印和特殊字符如*回车换行、后退、空格* <br>
 **但是还没有添加roll_screen的功能，不打算使用显示地址寄存器的功能而是直接暴力刷新**
+
+## update date:2020-04-16
+重新编译debug并且完善了mbr.asm，不过bochs显示和调试似乎有点小bug
