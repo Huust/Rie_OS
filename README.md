@@ -22,3 +22,7 @@ Just for fun,a unix-like toy operating system.
 
 ## update date:2020-04-16
 重新编译debug并且完善了mbr.asm，不过bochs显示和调试似乎有点小bug
+
+## update date:2020-04-19
+编译测试了过渡保护模式的部分，由于下文代码还没测试故先注释掉<br>
+mbr.asm文件中修复了磁盘读写的小问题
