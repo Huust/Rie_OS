@@ -1,7 +1,7 @@
 ;mbr主引导程序
 ;update date:2020-03-30
 ;second update:2020-04-16
-LOADER_IN_MEM equ 0x9000    ;loader.asm will be loaded from 0x80000
+LOADER_IN_MEM equ 0x900    ;loader.asm will be loaded from 0x80000
 LOADER_START_SECTOR equ 0x02  ;loader.asm in disk;mbr is set in sector 0
 
 
@@ -43,7 +43,8 @@ mov byte [es:9],0x07
 
 ;成功调用call后loader被写入内存；之后jmp到loader所在位置开始执行
 call loadin_loader
-jmp LOADER_IN_MEM
+mov ax,0xb06
+jmp ax  ;LOADER_IN_MEM地址+gdt_size
 
 loadin_loader:
 ;0x1f2:number of disk sections to write   0x1f3-0x1f5:LBA0-23   
