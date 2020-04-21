@@ -5,7 +5,7 @@
 ;create page table||use virtual memory
 ;load the kernel      
 
-LOADER_IN_MEM equ 0x9000  
+LOADER_IN_MEM equ 0x900
 LOADER_START_SECTOR equ 0x02
 
 section loader vstart=LOADER_IN_MEM
@@ -55,7 +55,7 @@ SELECTOR_DATA equ 0000_0000_0001_0000B
 SELECTOR_VIDEO equ 0000_0000_0001_1000B
 
 ;-------------实模式过渡到保护模式-------------
-jmp gdt_init
+;从mbr中跳到0x0b09(gdt_init)
 
 GDT_BASE:
             ;gdt1_empty
@@ -103,106 +103,160 @@ mov es,ax
 mov ax,SELECTOR_DATA
 mov gs,ax
 
-mov byte [es:80],"L"
-mov byte [es:81],0x07
-mov byte [es:82],"o"
-mov byte [es:83],0x07
-mov byte [es:84],"a"
-mov byte [es:85],0x07
-mov byte [es:86],"d"
-mov byte [es:87],0x07
-mov byte [es:88],"e"
-mov byte [es:89],0x07
-mov byte [es:90],"r"
-mov byte [es:91],0x07
+mov byte [es:160],"L"
+mov byte [es:161],0x07
+mov byte [es:162],"o"
+mov byte [es:163],0x07
+mov byte [es:164],"a"
+mov byte [es:165],0x07
+mov byte [es:166],"d"
+mov byte [es:167],0x07
+mov byte [es:168],"e"
+mov byte [es:169],0x07
+mov byte [es:170],"r"
+mov byte [es:171],0x07
+
+
+;call loadin_kernel      ;页表开启前加载内核
 
 ;------------------为页表的开启做准备-----------------------
 ;流程：创建页目录表和页表；cr3寄存器存放页目录表基址；cr0寄存器pg位置位，开启页表
 ;最高1G的size分配给内核，低3G分配给用户
 ;最后一个目录项指向PDT本身的起始地址
-;PDE_BASE_ADD equ 0x100000   ;0x100000=0xfffff+1,也就是高于1MB地址空间的第一个位置
-;PTE_BASE_ADD equ 0x101000   ;第一个页表的位置
+PDE_BASE_ADD equ 0x100000   ;0x100000=0xfffff+1,也就是高于1MB地址空间的第一个位置
+PTE_BASE_ADD equ 0x101000   ;第一个页表的位置
+
 ;--------初始化pde---------
-; .pde_init:
-; mov ecx,4096
-; mov esi,0
-; mov byte [PDE_BASE_ADD + esi],0
-; inc esi
-; loop .pde_init
-; mov eax,PTE_BASE_ADD
-; or eax,(111B)
-; mov ebx,PDE_BASE_ADD
-; mov [ebx],eax
-; ;3GB开始的另一个PDE也要指向第一个页表
-; mov [ebx+4*768],eax
+mov ecx,4096
+.pde_init:
+mov esi,0
+mov byte [PDE_BASE_ADD + esi],0
+inc esi
+loop .pde_init
+mov eax,PTE_BASE_ADD
+or eax,(111B)
+mov ebx,PDE_BASE_ADD
+mov [ebx],eax
+;3GB开始的另一个PDE也要指向第一个页表
+mov [ebx+4*768],eax
+;additional_init：除了第一个和3GB开始的另一个，剩余pde的初始化
+mov ecx,767
+.pde_additional_init_1:
+add eax,0x1000
+add ebx,4
+mov [ebx],eax
+loop .pde_additional_init_1
+add eax,0x1000
+add ebx,4
+mov ecx,254
+.pde_additional_init_2:
+add eax,0x1000
+add ebx,4
+mov [ebx],eax
+loop .pde_additional_init_2
 
-; .pde_additional_init_1:
-; mov ecx,(767)
-; add eax,0x1000
-; add ebx,4
-; mov [ebx],eax
-; loop .pde_additional_init_1
-; add eax,0x1000
-; add ebx,4
-; .pde_additional_init_2:
-; mov ecx,(254)
-; add eax,0x1000
-; add ebx,4
-; mov [ebx],eax
-; loop .pde_additional_init_2
+
+;--------初始化pte（指向低1MB）---------
+mov ecx,256
+mov ebx,PTE_BASE_ADD
+mov eax,0
+or eax,(111B)
+.pte_init:
+mov [ebx],eax
+add ebx,4
+add eax,0x1000
+loop .pte_init
 
 
-; ;--------初始化pte---------
-; mov ecx,256
-; mov ebx,PTE_BASE_ADD
-; mov eax,0
-; or eax,(111B)
-; .pte_init:
-; mov [ebx],eax
-; add ebx,4
-; add eax,0x1000
-; loop .pte_init
+mov eax,PDE_BASE_ADD
+mov cr3,eax
 
-; ;cr3 load address
-; mov eax,cr3
-; or eax,PDE_BASE_ADD
-; mov cr3,eax
-; ;reload gdt,也就是说把gdt中的段描述符加3GB使得开启页表后的虚拟地址是最高１GB的地址
-; sgdt [WRITE_TO_GDTR]
-; mov ebx, [WRITE_TO_GDTR + 2]
-; or dword [ebx + 0x18 + 4], 0xc0000000
-; add dword [WRITE_TO_GDTR + 2], 0xc0000000
-; add esp, 0xc0000000
-; ;set pg in cr0,paging begin
-; mov eax,cr0
-; or eax,(1B<<31)
-; mov cr0,eax
-; lgdt [WRITE_TO_GDTR]  ;here to update gdt address
 
-; ;通过打印判断是否正常工作
+;reload gdt,也就是说把gdt中的段描述符加3GB使得开启页表后的虚拟地址是最高1GB的地址
+sgdt [gdt_ptr]
+mov ebx, [gdt_ptr + 2];获得GDT_BASE
+or dword [ebx + 0x18 + 4], 0xc0000000
+add dword [gdt_ptr + 2], 0xc0000000
+add esp, 0xc0000000
 
-; mov byte [es:160],"p"
-; mov byte [es:161],0x07
-; mov byte [es:162],"a"
-; mov byte [es:163],0x07
-; mov byte [es:164],"g"
-; mov byte [es:165],0x07
-; mov byte [es:166],"i"
-; mov byte [es:167],0x07
-; mov byte [es:168],"n"
-; mov byte [es:169],0x07
-; mov byte [es:170],"g"
-; mov byte [es:171],0x07
+;set pg in cr0,paging begin
+mov eax,cr0
+or eax,(1B<<31)
+mov cr0,eax
+lgdt [gdt_ptr]  ;here to update gdt address
 
-; jmp $
-;------------------加载内核-----------------------
-;内核文件名为kernel.bin初步暂定存放在９扇区
-;内核加载分为１从磁盘载入２按照elf格式展开
-;我们的内核加载放在分页机制开启前；因此这里会以函数的形式存在
-;1MB空间中0x7e00~0x9fbff空闲，因此我们把内核镜像加载到0x70000
+;通过打印判断是否正常工作
+
+mov byte [es:320],"p"
+mov byte [es:321],0x07
+mov byte [es:322],"a"
+mov byte [es:323],0x07
+mov byte [es:324],"g"
+mov byte [es:325],0x07
+mov byte [es:326],"i"
+mov byte [es:327],0x07
+mov byte [es:328],"n"
+mov byte [es:329],0x07
+mov byte [es:330],"g"
+mov byte [es:331],0x07
+
+
+; call distribute_kernel  ;内核展开
+
+; ;------------------加载内核-----------------------
+; ;内核文件名为kernel.bin初步暂定存放在９扇区
+; ;内核还没壮大，所以暂时读取8扇区(8*512 == 1024*4)
+; ;内核加载分为１从磁盘载入２按照elf格式展开
+; ;我们的内核加载放在分页机制开启前；因此这里会以函数的形式存在
+; ;1MB空间中0x7e00~0x9fbff空闲，因此我们把内核镜像加载到0x70000
 ; KERNEL_BASE_ADD equ 0x70000
 ; PT_NULL equ 0
+; loadin_kernel:
+; ;0x1f2:number of disk sections to write   0x1f3-0x1f5:LBA0-23   
+; ;0x1f6:LBA24-27   0x1f7:command&status register
+; mov edx,0x1f2
+; mov al,8        ;number of sections to write
+; out edx,al
 
+; mov edx,0x1f3
+; mov al,9
+; out edx,al
+
+; mov edx,0x1f4
+; mov al,0
+; out edx,al
+
+; mov edx,0x1f5
+; mov al,0
+; out edx,al
+
+; mov edx,0x1f6
+; mov al,0xe0
+; out edx,al
+
+; mov edx,0x1f7
+; mov al,0x20
+; out edx,al
+
+; ;采用轮询方法等待状态寄存器(0x17f端口)3,7位满足要求
+; .QuestForRead:
+; in al,edx
+; and al,0x88 
+; cmp al,0x08
+; jnz .QuestForRead
+; mov ebx,KERNEL_BASE_ADD
+; mov edx,0x1f0
+; mov ecx,1024 
+; ;将读取的数据写入内存
+; .WriteToMem:
+; in eax,edx
+; mov [ebx],eax
+; add ebx,4
+; loop .WriteToMem
+; ret
+
+
+; ;------------内核展开-------------
 ; distribute_kernel:
 ; ;reset register 
 ; xor eax,eax
@@ -216,7 +270,7 @@ mov byte [es:91],0x07
 ; mov cx,[KERNEL_BASE_ADD + 44]   ;program header number
 
 ; .handle_segment:
-; cmp byte [ebx+0],PT_NULL
+; cmp byte [ebx],PT_NULL
 ; je .PT_NULL_HANDLER    
 ; ;创建一个类似strcpy的函数
 ; push dword [ebx + 16] 
@@ -225,7 +279,7 @@ mov byte [es:91],0x07
 ; push eax
 ; push dword [ebx + 8]
 ; call sim_strcpy
-; add esp 12
+; add esp,12
 ; .PT_NULL_HANDLER:   ;语句块复用trick：可以同时用作正常执行或是je成功的跳转区
 ;     add ebx,edx
 ; loop .handle_segment
@@ -233,7 +287,7 @@ mov byte [es:91],0x07
 
 ; sim_strcpy:
 ; push ebp
-; mov ebp esp
+; mov ebp,esp
 ; push ecx
 ; mov ds,cs
 ; mov es,ds
