@@ -26,3 +26,7 @@ Just for fun,a unix-like toy operating system.
 ## update date:2020-04-19
 编译测试了过渡保护模式的部分，由于下文代码还没测试故先注释掉<br>
 mbr.asm文件中修复了磁盘读写的小问题
+
+## update date:2020-04-21
+发现gdt地址加载错地方了，遂改之<br>
+编译测试了页表部分<br>
