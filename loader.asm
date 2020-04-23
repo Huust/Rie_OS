@@ -7,6 +7,7 @@
 
 LOADER_IN_MEM equ 0x900
 LOADER_START_SECTOR equ 0x02
+KERNEL_ENTRY equ 0xc0001500
 
 section loader vstart=LOADER_IN_MEM
 
@@ -98,26 +99,31 @@ p_mode_start:
 ;寄存器初始化
 mov ax,SELECTOR_DATA
 mov ds,ax
-mov ax,SELECTOR_VIDEO
 mov es,ax
-mov ax,SELECTOR_DATA
+mov ss,ax
+mov ax,SELECTOR_VIDEO
 mov gs,ax
 
-mov byte [es:160],"L"
-mov byte [es:161],0x07
-mov byte [es:162],"o"
-mov byte [es:163],0x07
-mov byte [es:164],"a"
-mov byte [es:165],0x07
-mov byte [es:166],"d"
-mov byte [es:167],0x07
-mov byte [es:168],"e"
-mov byte [es:169],0x07
-mov byte [es:170],"r"
-mov byte [es:171],0x07
+
+mov byte [gs:160],"L"
+mov byte [gs:161],0x07
+mov byte [gs:162],"o"
+mov byte [gs:163],0x07
+mov byte [gs:164],"a"
+mov byte [gs:165],0x07
+mov byte [gs:166],"d"
+mov byte [gs:167],0x07
+mov byte [gs:168],"e"
+mov byte [gs:169],0x07
+mov byte [gs:170],"r"
+mov byte [gs:171],0x07
+
+mov eax, 0x9
+mov ebx, 0x70000
+mov ecx, 200
+call loadin_kernel      ;页表开启前加载内核
 
 
-;call loadin_kernel      ;页表开启前加载内核
 
 ;------------------为页表的开启做准备-----------------------
 ;流程：创建页目录表和页表；cr3寄存器存放页目录表基址；cr0寄存器pg位置位，开启页表
@@ -177,6 +183,7 @@ sgdt [gdt_ptr]
 mov ebx, [gdt_ptr + 2];获得GDT_BASE
 or dword [ebx + 0x18 + 4], 0xc0000000
 add dword [gdt_ptr + 2], 0xc0000000
+mov esp,0x900 
 add esp, 0xc0000000
 
 ;set pg in cr0,paging begin
@@ -187,115 +194,163 @@ lgdt [gdt_ptr]  ;here to update gdt address
 
 ;通过打印判断是否正常工作
 
-mov byte [es:320],"p"
-mov byte [es:321],0x07
-mov byte [es:322],"a"
-mov byte [es:323],0x07
-mov byte [es:324],"g"
-mov byte [es:325],0x07
-mov byte [es:326],"i"
-mov byte [es:327],0x07
-mov byte [es:328],"n"
-mov byte [es:329],0x07
-mov byte [es:330],"g"
-mov byte [es:331],0x07
+mov byte [gs:320],"p"
+mov byte [gs:321],0x07
+mov byte [gs:322],"a"
+mov byte [gs:323],0x07
+mov byte [gs:324],"g"
+mov byte [gs:325],0x07
+mov byte [gs:326],"i"
+mov byte [gs:327],0x07
+mov byte [gs:328],"n"
+mov byte [gs:329],0x07
+mov byte [gs:330],"g"
+mov byte [gs:331],0x07
+
+jmp SELECTOR_CODE:enter_kernel
+
+enter_kernel:
+call distribute_kernel  ;内核展开
+mov esp, 0xc009f000     ;设置kernel的堆栈的物理地址为0x9f000
+jmp KERNEL_ENTRY
 
 
-; call distribute_kernel  ;内核展开
 
-; ;------------------加载内核-----------------------
-; ;内核文件名为kernel.bin初步暂定存放在９扇区
-; ;内核还没壮大，所以暂时读取8扇区(8*512 == 1024*4)
-; ;内核加载分为１从磁盘载入２按照elf格式展开
-; ;我们的内核加载放在分页机制开启前；因此这里会以函数的形式存在
-; ;1MB空间中0x7e00~0x9fbff空闲，因此我们把内核镜像加载到0x70000
-; KERNEL_BASE_ADD equ 0x70000
-; PT_NULL equ 0
+
+;------------------加载内核-----------------------
+;内核文件名为kernel.bin初步暂定存放在９扇区
+;内核还没壮大，所以暂时读取8扇区(8*512 == 1024*4)
+;内核加载分为１从磁盘载入２按照elf格式展开
+;我们的内核加载放在分页机制开启前；因此这里会以函数的形式存在
+;1MB空间中0x7e00~0x9fbff空闲，因此我们把内核镜像加载到0x70000
+KERNEL_BASE_ADD equ 0x70000
+PT_NULL equ 0
+
 ; loadin_kernel:
 ; ;0x1f2:number of disk sections to write   0x1f3-0x1f5:LBA0-23   
 ; ;0x1f6:LBA24-27   0x1f7:command&status register
-; mov edx,0x1f2
-; mov al,8        ;number of sections to write
-; out edx,al
+; mov dx,0x1f2
+; mov al,200        ;number of sections to write
+; out dx,al
 
-; mov edx,0x1f3
+; mov dx,0x1f3
 ; mov al,9
-; out edx,al
+; out dx,al
 
-; mov edx,0x1f4
+; mov dx,0x1f4
 ; mov al,0
-; out edx,al
+; out dx,al
 
-; mov edx,0x1f5
+; mov dx,0x1f5
 ; mov al,0
-; out edx,al
+; out dx,al
 
-; mov edx,0x1f6
+; mov dx,0x1f6
 ; mov al,0xe0
-; out edx,al
+; out dx,al
 
-; mov edx,0x1f7
+; mov dx,0x1f7
 ; mov al,0x20
-; out edx,al
+; out dx,al
 
 ; ;采用轮询方法等待状态寄存器(0x17f端口)3,7位满足要求
 ; .QuestForRead:
-; in al,edx
-; and al,0x88 
+; in al,dx
+; and al,0x88
 ; cmp al,0x08
 ; jnz .QuestForRead
 ; mov ebx,KERNEL_BASE_ADD
-; mov edx,0x1f0
-; mov ecx,1024 
+; mov dx,0x1f0
+; mov ecx,200
 ; ;将读取的数据写入内存
 ; .WriteToMem:
-; in eax,edx
-; mov [ebx],eax
-; add ebx,4
+; in ax,dx
+; mov [ebx],ax
+; add ebx,2
 ; loop .WriteToMem
 ; ret
 
 
-; ;------------内核展开-------------
-; distribute_kernel:
-; ;reset register 
-; xor eax,eax
-; xor ebx,ebx
-; xor ecx,ecx
-; xor edx,edx
-; ;read info in elf
-; mov ebx,[KERNEL_BASE_ADD + 28]
-; add ebx,KERNEL_BASE_ADD ;ebx被更改为第一个program header的地址
-; mov dx,[KERNEL_BASE_ADD + 42]   ;entry size
-; mov cx,[KERNEL_BASE_ADD + 44]   ;program header number
+loadin_kernel:  ;使用之前设置好eax ebx ecx
+    mov esi, eax
+    mov di, cx
+    mov dx, 0x1f2
+    mov al, cl
+    out dx, al
+    mov eax, esi
+    mov dx, 0x1f3
+    out dx, al
+    mov cl, 8
+    shr eax, cl
+    mov dx, 0x1f4
+    out dx, al
+    shr eax, cl
+    mov dx, 0x1f5
+    out dx, al
+    shr eax, cl
+    and al, 0x0f
+    or al, 0xe0
+    mov dx, 0x1f6
+    out dx, al
+    mov dx, 0x1f7
+    mov al, 0x20
+    out dx, al
+.not_ready:
+    nop
+    in al, dx
+    and al, 0x88
+    cmp al, 0x08
+    jnz .not_ready
+    mov ax, di
+    mov dx, 256
+    mul dx
+    mov cx, ax
+    mov dx, 0x1f0
+.go_on_read:
+    in ax, dx
+    mov [ebx], ax
+    add ebx, 2
+    loop .go_on_read
+    ret
 
-; .handle_segment:
-; cmp byte [ebx],PT_NULL
-; je .PT_NULL_HANDLER    
-; ;创建一个类似strcpy的函数
-; push dword [ebx + 16] 
-; mov eax,[ebx + 4]
-; add eax,KERNEL_BASE_ADD
-; push eax
-; push dword [ebx + 8]
-; call sim_strcpy
-; add esp,12
-; .PT_NULL_HANDLER:   ;语句块复用trick：可以同时用作正常执行或是je成功的跳转区
-;     add ebx,edx
-; loop .handle_segment
-; ret
+;------------内核展开-------------
+distribute_kernel:
+;reset register 
+xor eax,eax
+xor ebx,ebx
+xor ecx,ecx
+xor edx,edx
+;read info in elf
+mov ebx,[KERNEL_BASE_ADD + 28]
+add ebx,KERNEL_BASE_ADD ;ebx被更改为第一个program header的地址
+mov dx,[KERNEL_BASE_ADD + 42]   ;entry size
+mov cx,[KERNEL_BASE_ADD + 44]   ;program header number
 
-; sim_strcpy:
-; push ebp
-; mov ebp,esp
-; push ecx
-; mov ds,cs
-; mov es,ds
-; mov ecx,[ebp+16]
-; mov esi,[ebp+8]
-; mov edi,[ebp+4]
-; cld
-; rep movsb
-; pop ecx
-; pop ebp
-; ret
+.handle_segment:
+cmp byte [ebx],PT_NULL
+je .PT_NULL_HANDLER    
+;创建一个类似strcpy的函数
+push dword [ebx + 16] ;参数3：size
+mov eax,[ebx + 4]
+add eax,KERNEL_BASE_ADD
+push eax        ;参数2：源地址
+push dword [ebx + 8]    ;参数1：目标地址
+call sim_strcpy
+add esp,12
+.PT_NULL_HANDLER:   ;语句块复用trick：可以同时用作正常执行或是je成功的跳转区
+add ebx,edx
+loop .handle_segment
+ret
+
+sim_strcpy:
+cld
+push ebp
+mov ebp,esp
+push ecx
+mov ecx,[ebp+16]
+mov esi,[ebp+12]
+mov edi,[ebp+8]
+rep movsb
+pop ecx
+pop ebp
+ret
