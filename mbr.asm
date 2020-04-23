@@ -13,7 +13,7 @@ mov ds,ax
 mov fs,ax
 ;
 mov ax,0xb800
-mov es,ax
+mov gs,ax
 ;- why sp is given the value 0x7c00
 ;- because stack goes downward and code goes upward
 mov sp,0x7c00 
@@ -28,16 +28,16 @@ mov dl,84
 mov bh,0x07
 int 0x10
 
-mov byte [es:0],'R'
-mov byte [es:1],0x07
-mov byte [es:2],'i'
-mov byte [es:3],0x07
-mov byte [es:4],'e'
-mov byte [es:5],0x07
-mov byte [es:6],'O'
-mov byte [es:7],0x07
-mov byte [es:8],'S'
-mov byte [es:9],0x07
+mov byte [gs:0],'R'
+mov byte [gs:1],0x07
+mov byte [gs:2],'i'
+mov byte [gs:3],0x07
+mov byte [gs:4],'e'
+mov byte [gs:5],0x07
+mov byte [gs:6],'O'
+mov byte [gs:7],0x07
+mov byte [gs:8],'S'
+mov byte [gs:9],0x07
 
 ;-----------------显示部分结束，开始处理loader--------------
 
