@@ -1,0 +1,10 @@
+#!/bin/bash
+echo 'this is kernel file'
+# gcc -c -o main.o main.c
+# ld main.o -Ttext 0xc0001500 -e main -o kernel.bin
+
+#我之前gcc是加了-m32参数的，所以生成的.o文件是32位
+#这个链接过程要加-m elf_i386的原因是ld默认链接64位，与32位.o不匹配
+gcc -m32 -c -o main.o main.c
+ld -m elf_i386 main.o -Ttext 0xc0001500 -e main -o kernel.bin
+dd if=kernel.bin of=/home/huust/bochs_config/rieos_boot.img bs=512 count=200 seek=9 conv=notrunc
