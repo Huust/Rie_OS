@@ -192,20 +192,6 @@ or eax,(1B<<31)
 mov cr0,eax
 lgdt [gdt_ptr]  ;here to update gdt address
 
-;通过打印判断是否正常工作
-
-mov byte [gs:320],"p"
-mov byte [gs:321],0x07
-mov byte [gs:322],"a"
-mov byte [gs:323],0x07
-mov byte [gs:324],"g"
-mov byte [gs:325],0x07
-mov byte [gs:326],"i"
-mov byte [gs:327],0x07
-mov byte [gs:328],"n"
-mov byte [gs:329],0x07
-mov byte [gs:330],"g"
-mov byte [gs:331],0x07
 
 jmp SELECTOR_CODE:enter_kernel
 
@@ -213,8 +199,6 @@ enter_kernel:
 call distribute_kernel  ;内核展开
 mov esp, 0xc009f000     ;设置kernel的堆栈的物理地址为0x9f000
 jmp KERNEL_ENTRY
-
-
 
 
 ;------------------加载内核-----------------------
