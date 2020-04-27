@@ -8,15 +8,15 @@ VIDEO_RPI equ 0x0000
 VIDEO_TI equ 0x0000
 VIDEO_INDEX equ 0x0003
 VIDEO_SELECTOR equ (VIDEO_INDEX<<3|VIDEO_TI|VIDEO_RPI)
-;create the selector and give to gs
 mov ax,VIDEO_SELECTOR
-mov gs,ax   ;这里的赋值考虑到以后用户态调用
+mov gs,ax
 
+;-------rie_puts()---------
 [bits 32]
 
 global rie_putc
 rie_putc:
-pushad  ;push all register
+pushad
 ;locate the cursor
 ;high 8-bit
 mov dx,0x03d4
@@ -51,10 +51,11 @@ jmp .is_common_char
 
 .is_carriage_ret:
 mov ax,bx
-mov bl,80
-div bl
-mul bl
-mov bx,ax
+mov dl,80
+div dl
+and ax,(1111_1111_0000_0000B)
+shr ax,8
+sub bx,ax
 jmp .update_cursor
 
 .is_line_feed:
@@ -63,8 +64,8 @@ mov dx,bx
 add dx,80
 cmp dx,2000
 jnb .roll_screen
-cmp dx,2000
-add bx,80
+mov bx,dx
+cmp bx,2000
 jb .update_cursor
 
 .is_backspace:
@@ -109,7 +110,6 @@ add edi,2
 loop .clear_last_line
 
 
-
 .update_cursor:
 ;update cursor功能是将新的bx值重新返还
 ;给locate_cursor寄存器，以确保光标位置正确
@@ -131,4 +131,57 @@ out dx,al
 
 .putchar_terminate:
 popad
+ret
+
+;-------rie_puts()---------
+[bits 32]
+global rie_puts
+rie_puts:
+push ebp 
+push ecx
+push ebx
+mov ebp,esp
+xor ecx,ecx
+mov ebx,[ebp + 16]
+.str_handler:
+mov cl,[ebx]
+cmp cl,0   ;判断是否为'\0'
+jz .str_over
+inc ebx
+push ecx    ;压入rie_putc的字符参数
+call rie_putc
+add esp,4   ;因为是函数外部压栈所以需要手动调整esp的值
+jmp .str_handler
+
+.str_over:
+pop ebx
+pop ecx
+pop ebp
+ret
+
+
+;-------rie_puti()---------
+[bits 32]
+global rie_puti
+rie_puti:
+push ebp
+push ecx
+push ebx
+mov ebp,esp
+xor ecx,ecx
+mov ebx,[ebp + 16]
+.str_handler:
+mov cl,[ebx]
+cmp cl,0   ;判断是否为'\0'
+jz .str_over
+inc ebx
+push ecx    ;压入rie_putc的字符参数
+call rie_putc
+add esp,4   ;因为是函数外部压栈所以需要手动调整esp的值
+jmp .str_handler
+
+.str_over:
+pop ebx
+pop ecx
+pop ebp
 ret
