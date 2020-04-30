@@ -97,7 +97,9 @@ jnb .roll_screen
 ;滚屏是(1~24)-->(0~23)并将最后一行清空
 cld
 mov ecx,(24*80)
-;reg已经全部压栈,可修改ds与es
+;ds es压栈备份,movsw要用
+push ds
+push es
 mov ax,gs
 mov ds,ax
 mov es,ax
@@ -107,10 +109,12 @@ rep movsw
 add edi,2
 mov ecx,80
 .clear_last_line:
+; mov word [edi],0x0720
 mov word [gs:edi],0x0720
 add edi,2
 loop .clear_last_line
-
+pop ds
+pop es
 
 .update_cursor:
 ;update cursor功能是将新的bx值重新返还
@@ -146,7 +150,6 @@ xor ebx,ebx
 mov ebx,[esp + 12]
 .str_handler:
 mov cl,[ebx]
-jmp $
 cmp cl,0   ;判断是否为'\0'
 jz .str_over
 push ecx    ;压入rie_putc的字符参数

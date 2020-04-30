@@ -27,7 +27,7 @@ typedef struct descriptor
 //创建结构体数组存放全部中断描述符
 static idt_desc idt[desc_number] = {0};
 //kernel.asm中的中断处理程序入口地址数组
-extern uint32_t handler_entry_table[desc_number];
+extern void* handler_entry_table[desc_number];
 
 
 /*-----------------------
@@ -40,14 +40,14 @@ static void idt_desc_init(uint16_t selector,uint16_t property)
 {
     for(int i=0;i<desc_number;i++){
         idt[i].handler_addr_offset_low16
-         = (handler_entry_table[desc_number]&(0x0000ffff));
+         = (uint32_t)handler_entry_table[i] & 0x0000FFFF;
         idt[i].handler_addr_offset_high16
-         = (handler_entry_table[desc_number]>>16);
+         = ((uint32_t)handler_entry_table[i] & 0xFFFF0000) >> 16;
          idt[i].handler_selector = selector;
         idt[i].const_byte = 0;
         idt[i].property = property;
     }
-    //rie_puts("idt descriptor init\r\n");
+    rie_puts("idt descriptor init\r\n");
 }
 
 //中断控制器初始化
@@ -69,7 +69,6 @@ static void pic_init(void)
     outb(PIC_S_ODD,0xff);   //从ocw1的8位全部置1屏蔽
     
     rie_puts("pic init\r\n");
-    rie_putc('1');
 }
 
 void idt_init(void)
@@ -79,5 +78,5 @@ void idt_init(void)
     //描述符加载到lidt中
     uint64_t idt_operand = ((sizeof(idt) - 1) | ((uint64_t)((uint32_t)idt << 16)));
     asm volatile("lidt %0" : : "m" (idt_operand));
-    //rie_puts("idt_init done\r\n");
+    rie_puts("idt_init done\r\n");
 }
