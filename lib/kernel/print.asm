@@ -7,9 +7,7 @@
 VIDEO_RPI equ 0x0000
 VIDEO_TI equ 0x0000
 VIDEO_INDEX equ 0x0003
-VIDEO_SELECTOR equ (VIDEO_INDEX<<3|VIDEO_TI|VIDEO_RPI)
-mov ax,VIDEO_SELECTOR
-mov gs,ax
+VIDEO_SELECTOR equ (VIDEO_INDEX<<3)+VIDEO_TI+VIDEO_RPI
 
 ;-------rie_puts()---------
 [bits 32]
@@ -17,6 +15,8 @@ mov gs,ax
 global rie_putc
 rie_putc:
 pushad
+mov ax,VIDEO_SELECTOR
+mov gs,ax
 ;locate the cursor
 ;high 8-bit
 mov dx,0x03d4
@@ -27,7 +27,7 @@ in al,dx
 mov ah,al
 ;low 8-bit
 mov dx,0x03d4
-mov ax,0x0f
+mov al,0x0f
 out dx,al
 mov dx,0x03d5
 in al,dx
@@ -60,10 +60,12 @@ jmp .update_cursor
 
 .is_line_feed:
 ;需要考虑roll_screen的情况
+xor dx,dx
 mov dx,bx
 add dx,80
 cmp dx,2000
 jnb .roll_screen
+xor bx,bx
 mov bx,dx
 cmp bx,2000
 jb .update_cursor
@@ -99,13 +101,13 @@ mov ecx,(24*80)
 mov ax,gs
 mov ds,ax
 mov es,ax
-mov esi,80
+mov esi,160
 mov edi,0
 rep movsw
-inc edi
+add edi,2
 mov ecx,80
 .clear_last_line:
-mov dword [gs:edi],0x0720
+mov word [gs:edi],0x0720
 add edi,2
 loop .clear_last_line
 
@@ -122,8 +124,8 @@ mov al,bh
 out dx,al
 ;low 8-bit
 mov dx,0x03d4
-mov ax,0x0f
-out dx,ax
+mov al,0x0f
+out dx,al
 mov dx,0x03d5
 mov al,bl
 out dx,al
@@ -137,51 +139,24 @@ ret
 [bits 32]
 global rie_puts
 rie_puts:
-push ebp 
 push ecx
 push ebx
-mov ebp,esp
 xor ecx,ecx
-mov ebx,[ebp + 16]
+xor ebx,ebx
+mov ebx,[esp + 12]
 .str_handler:
 mov cl,[ebx]
+jmp $
 cmp cl,0   ;判断是否为'\0'
 jz .str_over
-inc ebx
 push ecx    ;压入rie_putc的字符参数
 call rie_putc
 add esp,4   ;因为是函数外部压栈所以需要手动调整esp的值
+inc ebx
 jmp .str_handler
 
 .str_over:
 pop ebx
 pop ecx
-pop ebp
 ret
 
-
-;-------rie_puti()---------
-[bits 32]
-global rie_puti
-rie_puti:
-push ebp
-push ecx
-push ebx
-mov ebp,esp
-xor ecx,ecx
-mov ebx,[ebp + 16]
-.str_handler:
-mov cl,[ebx]
-cmp cl,0   ;判断是否为'\0'
-jz .str_over
-inc ebx
-push ecx    ;压入rie_putc的字符参数
-call rie_putc
-add esp,4   ;因为是函数外部压栈所以需要手动调整esp的值
-jmp .str_handler
-
-.str_over:
-pop ebx
-pop ecx
-pop ebp
-ret
