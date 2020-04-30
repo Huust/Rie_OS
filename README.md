@@ -25,5 +25,9 @@ mbr.asm文件中修复了磁盘读写的小问题
 ## update date:2020-04-23
 bootloader宣布完结（已调试通过，但代码结构和一些函数后期会做修改） <br>
 之后就是c与assemble的联合使用；首先是`put_char()`以及*中断*的实现
-## update date:2020-04-23
+## update date:2020-04-27
 更新`rie_putc()`的实现并且在main.c上得到了测试;之后很快就会把`rie_puts()`以及`rie_puti()`提交
+## update date:2020-04-30
+中断部分代码完成,调试debug中...... <br>
+在调试中断的时候发现了`rie_putc()` `rie_puts()`潜在的bug,主要是因为**寄存器使用不规范,一些值没有清空导致的**<br>
+此外`rie_puts()`仍然有一个令人头疼的bug无法fix,心烦.
