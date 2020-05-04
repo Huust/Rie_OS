@@ -5,7 +5,8 @@
 %define no_error_code push 0
 %define exist_error_code nop
 extern rie_puts
-
+extern handler_table
+extern intr_handler
 [bits 32]
 section .data   ;此处data与下部分data在编译时合成一个
                 ;segment;从而使得dd的内容就接在
@@ -20,16 +21,26 @@ handler_entry_table:
 section .text
 intr_number_%1:
 %2
-push intr_info
-call rie_puts
-add esp,4
 ;向主片和从片发送结束指令
 mov al,0x20
 out 0xa0,al
 out 0x20,al
+push gs
+push ds
+push es
+push fs
+pushad
+push %1
+call [handler_table+(4*%1)]
+add esp,4   ;针对push %1
+popad
+pop fs
+pop es
+pop ds
+pop gs
 ;弹出错误码,因为iret弹栈时忽视error_code存在
-add esp,4
-iret
+add esp,4   ;针对push %2
+iretd
 
 section .data
 dd intr_number_%1
