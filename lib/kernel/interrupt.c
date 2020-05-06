@@ -4,8 +4,10 @@
 #include "io.h"
 //descriptor number
 #define desc_number 33
-//define pic port
+//eflag
+#define EFLAG_IF 0x00000200
 /*
+define pic port
 ICW1,OCW2,3-->0x20(M)/0xa0(S)
 ICW2-4,OCW1-->0x21(M)/0xa1(S)
 */
@@ -133,3 +135,42 @@ void idt_init(void)
     asm volatile("lidt %0" : : "m" (idt_operand));
     rie_puts("idt_init done\r\n");
 }
+
+/*-------------------
+function:实现开关中断
+获取eflag位-->判断中断位是否被开启,获取旧的中断状态
+-->enable()和disable()函数,分别用于开关中断
+-------------------*/
+
+intr_status old_status;
+
+intr_status get_status(void)
+{
+    //获取eflag的值,存到eflags变量中
+    uint32_t eflags = 0;
+    asm volatile("pushfl; popl %0" : "=g" (eflags));
+    //&运算判断eflags中的if位是否被set
+    return (eflags&EFLAG_IF)?intr_open:intr_close;
+}
+
+void rie_intr_enable(void)
+{
+    intr_status current_status = get_status();
+    if(current_status) {old_status = current_status;}
+    else{
+        old_status = current_status;
+        asm volatile("sti");
+    }
+}
+
+
+void rie_intr_disable(void)
+{
+    current_status = get_status();
+    if(!current_status) {old_status = current_status;}
+    else{
+        old_status = current_status;
+        asm volatile("cli" : : : "memory");
+    }
+}   
+
