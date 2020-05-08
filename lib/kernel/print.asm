@@ -47,7 +47,7 @@ jz .is_backspace
 jmp .is_common_char
 
 
-;-------------灵活利用bx寄存器做相应的字符处理----------------
+;-------------灵活利用bx寄存器对rie_putc传入的字符处理----------------
 
 .is_carriage_ret:
 mov ax,bx
@@ -139,7 +139,10 @@ out dx,al
 popad
 ret
 
-;-------rie_puts()---------
+;---------------rie_puts()-----------------
+;实现思路比较简单,主要就是在编译时,编译器会将字符串单独放在
+;一个内存块中,所以压栈时压的是字符串指针;这样就变成了多次put_char了
+;另外,这段代码配合编译器为字符串自动加0的功能,获得字符串的结束位置
 [bits 32]
 global rie_puts
 rie_puts:
@@ -163,3 +166,72 @@ pop ebx
 pop ecx
 ret
 
+
+;---------------rie_puti()-----------------
+;实现思路:
+;不同于rie_puts(),打印uint32_t类型还需要做ascii码转换
+;具体而言就是对于32位数分成8个4bit(正好是16进制的一位)
+;每一小块都要转换成ascii码并且存放到buffer中;
+;最后还需要将多余的前导0去除;最终实现16进制格式的字符串打印
+[bits 32]
+global rie_puti
+print_buffer dq 0
+prefix_0x db "0x",0
+rie_puti:
+push prefix_0x
+call rie_puts
+add esp,4
+pushad
+mov ebp,esp
+mov edi,[ebp+36]    ;获取打印参数
+mov ecx,8
+mov esi,0
+.handle_integer:
+mov eax,edi
+and eax, 0x0000000f
+cmp eax,9
+jna .is_number
+add al,'W'
+jmp .store_in_buffer
+
+.is_number:
+add al,'0'
+
+.store_in_buffer:
+mov [print_buffer+esi],al
+shr edi,4
+inc esi
+loop .handle_integer
+
+mov ecx,8
+mov esi,7
+xor ebx,ebx
+;设立标志位表示前导0已经结束
+;判断方法是当第一次检测到不为0时bh设为1,这样之后
+;即使bl为0,因为是根据ebx判断的,所以也不满足je条件
+.print_integer:
+cmp esi,-1
+je .full_0
+mov bl,[print_buffer+esi]   ;注意,这一步千万别把整数和ascii码混淆
+dec esi
+cmp ebx,0x30    ;这里是ascii(0) = 0x30,而不是0
+je .handle_0
+and bx,(0x00ff)
+push ebx
+call rie_putc
+add esp,4
+mov bh,1
+loop .print_integer
+popad
+ret
+
+.full_0:
+push '0'
+call rie_putc
+add esp,4
+popad
+ret
+
+.handle_0:
+dec ecx
+jmp .print_integer
