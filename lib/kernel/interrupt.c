@@ -1,7 +1,7 @@
-#include "stdint.h"
 #include "global.h"
 #include "print.h"
 #include "io.h"
+#include "interrupt.h"
 //descriptor number
 #define desc_number 33
 //eflag
@@ -85,8 +85,8 @@ void intr_handler(uint8_t intr_number)
     if ((intr_number == 0x27)||(intr_number == 0x3f)){
         return; //碰到IRQ7或IRQ15,判定为伪中断,不做处理
     }else{
-        rie_puts("hello,interrupt\r\n");
-        //TODO:没有添加rie_puti(),显示不了中断号
+        rie_puts("\r\nintr_number:");
+        rie_puti((uint32_t)intr_number);
     }
 }
 
@@ -153,6 +153,7 @@ intr_status get_status(void)
     return (eflags&EFLAG_IF)?intr_open:intr_close;
 }
 
+
 void rie_intr_enable(void)
 {
     intr_status current_status = get_status();
@@ -166,7 +167,7 @@ void rie_intr_enable(void)
 
 void rie_intr_disable(void)
 {
-    current_status = get_status();
+    intr_status current_status = get_status();
     if(!current_status) {old_status = current_status;}
     else{
         old_status = current_status;

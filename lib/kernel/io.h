@@ -36,5 +36,4 @@ static inline void insw(uint16_t port, void* addr, uint32_t word_cnt)
     asm volatile ("cld; rep insw" : "+D" (addr), "+c" (word_cnt)
                 : "d" (port) : "memory");
 }
-
 #endif

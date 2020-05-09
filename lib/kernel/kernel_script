@@ -24,6 +24,8 @@ gcc -m32 -I ../ -I ./ -c -fno-stack-protector -o build/main.o main.c
 
 gcc -m32 -I ../ -I ./ -c -fno-stack-protector -o build/interrupt.o interrupt.c
 
-ld -m elf_i386 -Ttext 0xc0001500 -e main -o kernel.bin build/main.o build/print.o build/kernel.o build/interrupt.o
+gcc -m32 -I ../ -I ./ -c -fno-stack-protector -o build/debug.o debug.c
+
+ld -m elf_i386 -Ttext 0xc0001500 -e main -o kernel.bin build/main.o build/debug.o build/print.o build/kernel.o build/interrupt.o
 
 dd if=kernel.bin of=/home/huust/bochs_config/rieos_boot.img bs=512 count=200 seek=9 conv=notrunc
