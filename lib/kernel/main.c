@@ -1,6 +1,7 @@
 #include "print.h"
 #include "interrupt.h"
 #include "debug.h"
+#include "memory.h"
 int main(void)
 {
     
