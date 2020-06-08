@@ -323,3 +323,4 @@ void* get_kernel_page(uint32_t page_num)
     rie_memset((void*)page_vaddr,0,page_num * PAGE_SIZE);
     return (void*)page_vaddr;
 }
+
