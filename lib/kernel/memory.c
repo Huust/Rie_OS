@@ -59,6 +59,23 @@ static void physical_pool_init(uint32_t all_mem,uint32_t page_num)
     //bitmap 初始化
     bitmap_init(kernel_pool.pool_bitmap);
     bitmap_init(user_pool.pool_bitmap);
+
+    //
+    rie_puts("kernel_pool bitmap_set:");
+    rie_puti((uint32_t)kernel_pool.pool_bitmap.bitmap_set);
+
+    rie_puts("    pool_start:");
+    rie_puti(kernel_pool.pool_start);
+
+    rie_puts("\r\n");
+
+    rie_puts("user_pool bitmap_set:");
+    rie_puti((uint32_t)user_pool.pool_bitmap.bitmap_set);
+
+    rie_puts("    pool_start:");
+    rie_puti(user_pool.pool_start);
+    rie_puts("\r\n");
+
 }
 
 
@@ -97,13 +114,18 @@ static void kernel_virtual_pool_init(void)
 @param:
     all_mem:全部内存
     page_num:loader.asm中已分配好的page数量
+@notes:
+    all_mem == 0x2000000
+    因为本机内存为32MB(0x2000000)
+    page_num == 256
+    为什么是256？见问题记录.md 6月7日版
 */
 void mem_struct_init(uint32_t all_mem,uint32_t page_num)
 {
-    rie_puts("mem_struct_init start\r\n");
+    //rie_puts("mem_struct_init start\r\n");
     physical_pool_init(all_mem, page_num);
     kernel_virtual_pool_init();
-    rie_puts("mem_struct_init done\r\n");
+    //rie_puts("mem_struct_init done\r\n");
 }
 
 /*-----------------分隔符-------------------*/
@@ -191,6 +213,7 @@ static uint32_t pmalloc(struct physical_pool pool)
     }
 }
 
+
 /*mem_map
 @function:
     建立vaddr与实际物理内存的映射
@@ -198,37 +221,43 @@ static uint32_t pmalloc(struct physical_pool pool)
     vaddr:虚拟地址
     paddr:页的物理地址
 @notes:
+    因为物理页是非连续的，所以每次只能映射1页
 */
-
 static void mem_map(uint32_t vaddr,uint32_t paddr)
 {
     //通过vaddr获得pde、pte的虚拟地址
     uint32_t* vaddr_pde = (uint32_t*)get_vaddr_pde(vaddr);
     uint32_t* vaddr_pte = (uint32_t*)get_vaddr_pte(vaddr);
 
-    uint32_t paddr_pde = 0;
-    uint32_t paddr_pte = 0;
+    uint32_t paddr_pt = 0;  //存放通过pmalloc()新建的page table的物理地址
 
     //首先看pde
     if((*vaddr_pde)&PG_P_1){    //如果pde存在
         //那么应该接着判断pte是否存在
         if((*vaddr_pte)&PG_P_1){    //pte也存在
             //为pte更新物理地址
+            //fixme:然而这种情况不允许你写;此时映射已经建立好了.改不改都没有意义
             *vaddr_pte = (*vaddr_pte)&0xfff + paddr;
-        }else{                      //pte不存在
+
+        }else{                    /*pte不存在*/
             //创建pte
-            paddr_pte = pmalloc(kernel_pool);
-            *vaddr_pde = (*vaddr_pde)&0xfff + paddr_pte;
+            paddr_pt = pmalloc(kernel_pool);
+            *vaddr_pde = (*vaddr_pde)&0xfff + paddr_pt;
+            //对新生成的page table全部清0，防止这是之前被释放的内存，内部存在dirty data
+            //rie_memset((void*)((uint32_t)vaddr_pte&0xfffff000),0,PAGE_SIZE);
+            rie_memset(vaddr_pte,0,4);
             //属性位
-            *vaddr_pte = ((*vaddr_pte) | PG_US_U | PG_RW_W | PG_P_1);
-            //为pte更新高20位的物理地址
-            *vaddr_pte = (*vaddr_pte)&0xfff + paddr;
+            *vaddr_pte = (paddr | PG_US_U | PG_RW_W | PG_P_1);
+            rie_puts("\r\nvaddr_pte:");
+            rie_puti(*vaddr_pte);
         }
-    }else{                       //如果pde不存在(自然pte也不存在)
-        paddr_pte = pmalloc(kernel_pool);
+    }else{                      /*如果pde不存在(自然pte也不存在)*/
+        paddr_pt = pmalloc(kernel_pool);
         //为pde赋值(在loader.asm中已经为1024pde预留了空间，但是当时pde下面没有页表就没有为其初始化)
-        *vaddr_pde = (paddr_pte | PG_US_U | PG_RW_W | PG_P_1);
+        rie_memset(vaddr_pde,0,4);
+        *vaddr_pde = (paddr_pt | PG_US_U | PG_RW_W | PG_P_1);
         //为新创建的pte赋值
+        rie_memset(vaddr_pte,0,4);
         *vaddr_pte = (paddr | PG_US_U | PG_RW_W | PG_P_1);
     }
 }
@@ -254,10 +283,9 @@ static uint32_t page_malloc(enum mem_apply applicant, uint32_t page_num)
     
     //虚拟内存池中页的地址
     uint32_t page_vaddr = vmalloc(applicant,page_num);
-    //映射到物理内存上某页的物理地址
-    uint32_t page_paddr = 0;    
-
     if(page_vaddr == 0) {return 0;}
+
+    uint32_t page_paddr = 0;    
 
     struct physical_pool pool;
     pool = (applicant == APP_KERNEL)?kernel_pool:user_pool;
@@ -289,10 +317,9 @@ static uint32_t page_malloc(enum mem_apply applicant, uint32_t page_num)
 */
 void* get_kernel_page(uint32_t page_num)
 {
-    uint32_t page_vaddr = page_malloc(APP_KERNEL,page_num);
 
+    uint32_t page_vaddr = page_malloc(APP_KERNEL,page_num);
     if((page_vaddr == 0)||(page_vaddr == 1)) {return NULL;}
     rie_memset((void*)page_vaddr,0,page_num * PAGE_SIZE);
-    
     return (void*)page_vaddr;
 }
