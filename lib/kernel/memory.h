@@ -4,6 +4,9 @@
 #include "./print.h"
 #include "../stdint.h"
 #include "../string.h"
+#include "./debug.h"
+
+#define PAGE_SIZE 4096      //4kb = 4096b
 
 #define PG_P_1  1   // 页表项或页目录项存在属性位
 #define PG_P_0  0

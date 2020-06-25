@@ -131,7 +131,7 @@ mov ebx,PDE_BASE_ADD
 mov [ebx],eax
 ;3GB开始的另一个PDE也要指向第一个页表
 mov [ebx+4*768],eax
-;additional_init：除了第一个和3GB开始的另一个，剩余pde的初始化
+;additional_init：除了第一个和3GB开始的另一个，剩余pde的初始化(全部初始化为0)
 mov ecx,767
 .pde_additional_init_1:
 add eax,0x1000
@@ -146,9 +146,15 @@ add eax,0x1000
 add ebx,4
 mov [ebx],eax
 loop .pde_additional_init_2
+;最后1个PDE指向PDE表本身
+mov eax,PDE_BASE_ADD
+or eax,(111B)
+add ebx,4
+mov [ebx],eax
 
 
 ;--------初始化pte（指向低1MB）---------
+;--------这里只初始化了256个页表---------
 mov ecx,256
 mov ebx,PTE_BASE_ADD
 mov eax,0

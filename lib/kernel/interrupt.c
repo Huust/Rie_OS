@@ -88,6 +88,7 @@ void intr_handler(uint8_t intr_number)
         rie_puts("\r\nintr_number:");
         rie_puti((uint32_t)intr_number);
     }
+    if(intr_number == 0xd) {while(1);}
 }
 
 
@@ -99,7 +100,8 @@ function:
 static void exception_init(void)
 {
     for(int i=0;i<desc_number;i++){
-        handler_table[i] = intr_handler;
+        //暂时先将全部中断处理函数指向同一个函数
+        handler_table[i] = intr_handler;   
     }
     intr_tag[0] = "#DE Divide Error";
     intr_tag[1] = "#DB Debug Exception";
@@ -123,6 +125,22 @@ static void exception_init(void)
     intr_tag[19] = "#XF SIMD Floating-Point Exception";
 }
 
+/*intr_handler_register
+@function:
+    注册中断处理函数
+@param:
+    irq_num:IRQ中断号
+    function:处理函数地址
+@notes:
+    irq_num是IRQ号而不是中断号，IRQ对应中断号从0x20开始    
+*/
+void intr_handler_register(uint8_t irq_num,
+                            void* function)
+{
+    handler_table[irq_num + 0x20] = function;
+}
+
+
 
 //中断相关初始化
 void idt_init(void)
@@ -142,7 +160,7 @@ function:实现开关中断
 -->enable()和disable()函数,分别用于开关中断
 -------------------*/
 
-intr_status old_status;
+intr_status old_status = intr_close;
 
 intr_status get_status(void)
 {
@@ -150,10 +168,20 @@ intr_status get_status(void)
     uint32_t eflags = 0;
     asm volatile("pushfl; popl %0" : "=g" (eflags));
     //&运算判断eflags中的if位是否被set
-    return (eflags&EFLAG_IF)?intr_open:intr_close;
+    return (EFLAG_IF&eflags)?intr_open:intr_close;
 }
 
 
+
+/*rie_intr_enable(disable)
+@notes:
+    为什么需要old_status这个变量?
+    个人感觉这个变量是冗余的.因为用到该变量的三个
+    功能函数中涉及到old_status的语句都可以略去
+    但是为了防止之后需要用到,暂做保留
+    (唯一的作用是,当你需要获取状态时,可以少调用一次get_status()
+    函数,仅仅读这个值即可;但似乎不是那么放心)
+*/
 void rie_intr_enable(void)
 {
     intr_status current_status = get_status();
@@ -175,3 +203,17 @@ void rie_intr_disable(void)
     }
 }   
 
+
+/*rie_intr_set
+将想要设置的中断开关状态传入函数
+*/
+void rie_intr_set(intr_status status)
+{
+    intr_status current_status = get_status();
+    old_status = current_status;
+    if(status == intr_close){
+        asm volatile("cli" : : : "memory");
+    }else{  //status == intr_open
+        asm volatile("sti");
+    }
+}

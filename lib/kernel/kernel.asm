@@ -43,7 +43,10 @@ add esp,4   ;针对push %2
 iretd
 
 section .data
-dd intr_number_%1
+dd intr_number_%1   ;这里保留空间存放地址
+                    ;跟在handler_entry_table构成数组，中断
+                    ;就是首先按照这个地址进入的，接着
+                    ;call handler_table中的中断处理函数
 
 %endmacro
 
@@ -80,4 +83,6 @@ VECTOR 0x1c,no_error_code
 VECTOR 0x1d,no_error_code
 VECTOR 0x1e,no_error_code
 VECTOR 0x1f,no_error_code
-VECTOR 0x20,no_error_code
+VECTOR 0x20,no_error_code       ;0x20==32,这个专门留给IRQ0时钟
+                                ;之所以只到0x20是因为目前只用到
+                                ;IRQ0时钟，需要其它INTR以后加上

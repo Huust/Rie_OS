@@ -1,5 +1,5 @@
 #include "memory.h"
-#define PAGE_SIZE 4096      //4kb = 4096b
+
 #define KERNEL_HEAP_START 0xc0100000    //为什么这个值看chapter8.md
 #define BITMAP_BASE_ADDR 0xc009a000     //为什么这个值理由同上
 
@@ -92,7 +92,7 @@ static void kernel_virtual_pool_init(void)
 
     rie_puts("kernel_heap_init start\r\n");
 
-    //bitmap数组存放的位置(末尾挨着物理内存池bitmap起始处)
+    //bitmap数组存放的位置(跟着物理内存池bitmap)
     kernel_heap.pool_bitmap.bitmap_set = (uint8_t*)(BITMAP_BASE_ADDR + \
     kernel_pool.pool_bitmap.bitmap_len + user_pool.pool_bitmap.bitmap_len);
 
@@ -103,7 +103,7 @@ static void kernel_virtual_pool_init(void)
     内核使用了，所以heap更适合这个名字；否则位图就不是简单地
     全部初始化为0了*/
     kernel_heap.pool_bitmap.bitmap_len = kernel_pool.pool_bitmap.bitmap_len;
-
+    bitmap_init(kernel_heap.pool_bitmap);
     //virtual_pool结构体的内存池地址
     kernel_heap.pool_start = KERNEL_HEAP_START;   
 }
@@ -122,10 +122,10 @@ static void kernel_virtual_pool_init(void)
 */
 void mem_struct_init(uint32_t all_mem,uint32_t page_num)
 {
-    //rie_puts("mem_struct_init start\r\n");
+    rie_puts("mem_struct_init start\r\n");
     physical_pool_init(all_mem, page_num);
     kernel_virtual_pool_init();
-    //rie_puts("mem_struct_init done\r\n");
+    rie_puts("mem_struct_init done\r\n");
 }
 
 /*-----------------分隔符-------------------*/
@@ -232,30 +232,29 @@ static void mem_map(uint32_t vaddr,uint32_t paddr)
     uint32_t paddr_pt = 0;  //存放通过pmalloc()新建的page table的物理地址
 
     //首先看pde
-    if((*vaddr_pde)&PG_P_1){    //如果pde存在
+    if((*vaddr_pde)&PG_P_1){    /*如果该pde下的page_table存在*/
         //那么应该接着判断pte是否存在
-        if((*vaddr_pte)&PG_P_1){    //pte也存在
-            //为pte更新物理地址
-            //fixme:然而这种情况不允许你写;此时映射已经建立好了.改不改都没有意义
-            *vaddr_pte = (*vaddr_pte)&0xfff + paddr;
+        if((*vaddr_pte)&PG_P_1){    /*pte映射的物理页也存在*/
 
-        }else{                    /*pte不存在*/
-            //创建pte
-            paddr_pt = pmalloc(kernel_pool);
-            *vaddr_pde = (*vaddr_pde)&0xfff + paddr_pt;
-            //对新生成的page table全部清0，防止这是之前被释放的内存，内部存在dirty data
-            //rie_memset((void*)((uint32_t)vaddr_pte&0xfffff000),0,PAGE_SIZE);
+            //报错，这代表申请的虚拟地址已经映射到了某一物理页上，不能重复申请
+            rie_puts("another vitural address has mapped,pte repeat!\r\n");
+            ASSERT((*vaddr_pte)&PG_P_1 == 1);
+        
+        }else{                    /*pte还没有映射到某一个物理页上*/
+
             rie_memset(vaddr_pte,0,4);
             //属性位
             *vaddr_pte = (paddr | PG_US_U | PG_RW_W | PG_P_1);
-            rie_puts("\r\nvaddr_pte:");
-            rie_puti(*vaddr_pte);
+
         }
-    }else{                      /*如果pde不存在(自然pte也不存在)*/
+    }else{                      /*如果该pde下的page_table不存在*/
         paddr_pt = pmalloc(kernel_pool);
-        //为pde赋值(在loader.asm中已经为1024pde预留了空间，但是当时pde下面没有页表就没有为其初始化)
         rie_memset(vaddr_pde,0,4);
         *vaddr_pde = (paddr_pt | PG_US_U | PG_RW_W | PG_P_1);
+        
+        //对新生成的page table全部清0，防止这是之前被释放的内存，内部存在dirty data
+        rie_memset((void*)((uint32_t)vaddr_pte&0xfffff000),0,PAGE_SIZE);
+
         //为新创建的pte赋值
         rie_memset(vaddr_pte,0,4);
         *vaddr_pte = (paddr | PG_US_U | PG_RW_W | PG_P_1);
@@ -317,7 +316,6 @@ static uint32_t page_malloc(enum mem_apply applicant, uint32_t page_num)
 */
 void* get_kernel_page(uint32_t page_num)
 {
-
     uint32_t page_vaddr = page_malloc(APP_KERNEL,page_num);
     if((page_vaddr == 0)||(page_vaddr == 1)) {return NULL;}
     rie_memset((void*)page_vaddr,0,page_num * PAGE_SIZE);

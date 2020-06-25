@@ -10,9 +10,9 @@ strchr()    strrchr()   strchrs()
 */
 
 
-void memset(void* addr_,uint8_t value,uint32_t size)
+void rie_memset(void* addr_,uint8_t value,uint32_t size)
 {
-    ASSERT(dst_ != NULL);
+    ASSERT(addr_ != NULL);
     uint8_t* addr = (uint8_t*)addr_;
     while(size-- > 0){
         *addr++ = value;
@@ -20,9 +20,9 @@ void memset(void* addr_,uint8_t value,uint32_t size)
 }
 
 
-void memcpy(const void* src_,void* dest_,uint32_t size)
+void rie_memcpy(const void* src_,void* dest_,uint32_t size)
 {
-    ASSERT(dst_ != NULL && src_ != NULL);
+    ASSERT(dest_ != NULL && src_ != NULL);
     const uint8_t* src = (uint8_t*)src_;
     uint8_t* dest = (uint8_t*)dest_;
     while(size-- > 0){
@@ -31,7 +31,7 @@ void memcpy(const void* src_,void* dest_,uint32_t size)
 }
 
 
-int8_t memcmp(void* a_,void* b_,uint32_t size)
+int8_t rie_memcmp(void* a_,void* b_,uint32_t size)
 {
     uint8_t* a = (uint8_t*)a_;
     uint8_t* b = (uint8_t*)b_;
@@ -44,7 +44,7 @@ int8_t memcmp(void* a_,void* b_,uint32_t size)
 }
 
 
-char* strcpy(char* dst_, const char* src_)
+char* rie_strcpy(char* dst_, const char* src_)
 {
    ASSERT(dst_ != NULL && src_ != NULL);
    char* r = dst_;      //用来返回目的字符串起始地址
@@ -53,18 +53,22 @@ char* strcpy(char* dst_, const char* src_)
 }
 
 
-int8_t strcmp(void* a,void* b)
+int8_t rie_strcmp(void* a_, void* b_)
 {
-    ASSERT(a != NULL && b != NULL);
-    while(*a != 0 && *a == *b){
+   ASSERT(a_ != NULL && b_ != NULL);
+   
+   uint8_t* a = (uint8_t*)a_;
+   uint8_t* b = (uint8_t*)b_;
+
+   while(*a != 0 && *a == *b){
         a++;
         b++;
-    }
-    return *a < *b ? −1 : *a > *b;
+   }
+   return (*a < *b) ? (-1) : (*a > *b);
 }
 
 
-uint32_t strlen(const char* str) 
+uint32_t rie_strlen(const char* str) 
 {
    ASSERT(str != NULL);
    const char* p = str;
@@ -73,7 +77,7 @@ uint32_t strlen(const char* str)
 }
 
 
-char* strcat(const char* src_,char* dst_) 
+char* rie_strcat(const char* src_,char* dst_) 
 {
    ASSERT(dst_ != NULL && src_ != NULL);
    char* str = dst_;
@@ -85,7 +89,7 @@ char* strcat(const char* src_,char* dst_)
 
 
 /* 从左到右查找字符串str中首次出现字符ch的地址*/
-char* strchr(const char* str, const uint8_t ch) 
+char* rie_strchr(const char* str, const uint8_t ch) 
 {
    ASSERT(str != NULL);
    while (*str != 0) {
@@ -97,7 +101,7 @@ char* strchr(const char* str, const uint8_t ch)
 
 
 /*从后往前查找字符串str中首次出现字符ch的地址*/
-char* strrchr(const char* str, const uint8_t ch) 
+char* rie_strrchr(const char* str, const uint8_t ch) 
 {
    ASSERT(str != NULL);
    const char* last_char = NULL;
@@ -112,7 +116,7 @@ char* strrchr(const char* str, const uint8_t ch)
 
 
 /*在字符串str中查找指定字符ch出现的次数*/
-uint32_t strchrs(const char* str, uint8_t ch) 
+uint32_t rie_strchrs(const char* str, uint8_t ch) 
 {
    ASSERT(str != NULL);
    uint32_t ch_cnt = 0;

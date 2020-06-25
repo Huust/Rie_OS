@@ -1,17 +1,35 @@
-#include "print.h"
-#include "interrupt.h"
-#include "debug.h"
-#include "memory.h"
+#include "./print.h"
+#include  "./all_init.h"
+
+void thread_a(void* arg);
+void thread_b(void* arg);
+
+
 int main(void)
 {
-    
     rie_puts("rieos kernel\r\n");
-    //idt_init();
-    //ASSERT(2==3);
-    //asm volatile ("sti");   //打开全局中断
-    mem_struct_init(0x2000000,256);  
-    uint32_t vaddr = (uint32_t)get_kernel_page(3);
-    rie_puts("hello");
-    while(1);
+    all_init();
+    //thread_start("funca", thread_a, "argA ", 8);
+    //thread_start("funcb",thread_b, "argB", 21);
+    rie_intr_enable();
+    while(1){
+        rie_puts("Main ");
+    }
     return 0;
+}
+
+void thread_a(void* arg)
+{
+    char* a = (char*)arg;
+    while(1){
+        rie_puts(a);
+    }
+}
+
+void thread_b(void* arg)
+{
+    char* b = (char*)arg;
+    while(1){
+        rie_puts(b);
+    }
 }
