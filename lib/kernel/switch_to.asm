@@ -9,11 +9,11 @@ push ebx
 push edi
 push esi
 
-mov eax, [esp+20]
-mov [eax], esp
+mov eax, [esp+20]   ;获取cur_thread指向的内容
+mov [eax], esp      ;cur_thread首地址内容为栈顶指针
 
-mov eax, [esp+24]
-mov esp, [eax]
+mov eax, [esp+24]   ;获取next_thread指向的内容
+mov esp, [eax]      ;同理,next_thread首地址内容为栈顶指针
 
 pop esi
 pop edi

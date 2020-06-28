@@ -9,7 +9,7 @@ VIDEO_TI equ 0x0000
 VIDEO_INDEX equ 0x0003
 VIDEO_SELECTOR equ (VIDEO_INDEX<<3)+VIDEO_TI+VIDEO_RPI
 
-;-------rie_puts()---------
+;-------rie_putc()---------
 [bits 32]
 
 global rie_putc
@@ -96,25 +96,20 @@ jnb .roll_screen
 .roll_screen:
 ;滚屏是(1~24)-->(0~23)并将最后一行清空
 cld
-mov ecx,(24*80)
-;ds es压栈备份,movsw要用
-push ds
-push es
-mov ax,gs
-mov ds,ax
-mov es,ax
-mov esi,160
-mov edi,0
-rep movsw
-add edi,2
+mov ecx,(24*40)     ;循环次数取决于每次mov w/d
+;这里的trick是因为ds,es==0,所以直接用esi,edi表示
+;也表明:任何段选择子和偏移量都可以任意搭配,哪种搭配都可以表示同一地址
+mov esi,0xc00b80a0
+mov edi,0xc00b8000
+rep movsd
+
+mov edi,3840
 mov ecx,80
 .clear_last_line:
-; mov word [edi],0x0720
 mov word [gs:edi],0x0720
 add edi,2
 loop .clear_last_line
-pop ds
-pop es
+
 
 .update_cursor:
 ;update cursor功能是将新的bx值重新返还

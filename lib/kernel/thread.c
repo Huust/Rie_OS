@@ -5,15 +5,15 @@ extern void switch_to(struct thread_pcb*, struct thread_pcb*);
 
 //宏函数，通过结构体成员地址反推结构体地址
 #define offset(struct_type, member)     \
-(uint32_t)(&((struct_type*)0)->member)
+(uint32_t)(&((struct_type*)0)->member)      //这边仅仅是读操作,没有写所以不涉及非法访问
 
 #define elem2pcb(struct_type, member, offset)      \
 (struct_type*)((uint32_t)member - offset)
 
 
 struct thread_pcb* main_thread;
-struct list* all_list;
-struct list* ready_list;
+struct list all_list;
+struct list ready_list;
 
 void kernel_thread(thread_func* function, 
                     void* arg)
@@ -92,11 +92,11 @@ void thread_start(const char* name,
 
 
     //ASSERT是多余的，不过以防万一还是加上了
-    ASSERT(!elem_search(all_list, &thread->all_list_elem));
-    list_append(all_list, &thread->all_list_elem);
+    ASSERT(!elem_search(&all_list, &thread->all_list_elem));
+    list_append(&all_list, &thread->all_list_elem);
 
-    ASSERT(!elem_search(ready_list, &thread->ready_list_elem));
-    list_append(all_list, &thread->ready_list_elem);
+    ASSERT(!elem_search(&ready_list, &thread->ready_list_elem));
+    list_append(&ready_list, &thread->ready_list_elem);
 
     //内联汇编部分负责跳转到线程执行（因为涉及到修改eip）
     //同时将esp的值修改为thread stack栈底值
@@ -110,8 +110,6 @@ struct thread_pcb* get_running_thread(void)
 {
     uint32_t esp;
     asm ("mov %%esp, %0" : "=g" (esp));
-    // rie_puts("\r\n");
-    // rie_puti(esp);
     return (struct thread_pcb*)(esp & 0xfffff000);
 }
 
@@ -121,30 +119,28 @@ static void main_thread_register(void)
     main_thread = get_running_thread();
     //获得main thread的pcb后填充pcb内容
     pcb_register(main_thread,"main",1);
-    ASSERT(!elem_search(all_list, &main_thread->all_list_elem));
-    list_append(all_list, &main_thread->all_list_elem);
+    ASSERT(!elem_search(&all_list, &main_thread->all_list_elem));
+    list_append(&all_list, &main_thread->all_list_elem);
 }
 
 
 void schedule(void)
 {
-    rie_puts("schedule!!!!!!");
-    while(1);
     ASSERT(intr_close==get_status());
     struct thread_pcb* cur_thread = get_running_thread();
     //fixme:若只有main线程，则第一次调度时会断言失败
-    ASSERT(!list_empty(ready_list));
-    struct list_element* next_elem = list_pop(ready_list);
+    //ASSERT(!list_empty(&ready_list));
     
     if(cur_thread->status == TASK_RUNNING){
         cur_thread->tick = 32 - cur_thread->prior;
         cur_thread->status = TASK_READY;
         
-        list_append(ready_list, &cur_thread->ready_list_elem);
+        list_append(&ready_list, &cur_thread->ready_list_elem);
     }else{
         //todo:非时间片原因造成的schedule；暂时不做讨论
     }
 
+    struct list_element* next_elem = list_pop(&ready_list);
     //通过next_elem成员地址反推其结构体地址
     struct thread_pcb* next_thread = elem2pcb(struct thread_pcb, 
                                             next_elem, 
@@ -160,7 +156,7 @@ void schedule(void)
 */
 void thread_init(void)
 {
-    list_init(all_list);
-    list_init(ready_list);
+    list_init(&all_list);
+    list_init(&ready_list);
     main_thread_register();
 }

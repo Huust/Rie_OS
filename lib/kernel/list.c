@@ -10,11 +10,10 @@
 void list_init(struct list* list)
 {
     list->head.prev = NULL;
-    list->head.next = &(list->tail);
+    list->head.next = &list->tail;
 
-    list->tail.prev = &(list->head);
+    list->tail.prev = &list->head;
     list->tail.next = NULL;
-    
 }
 
 /*list_insert

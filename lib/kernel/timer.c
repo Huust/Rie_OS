@@ -31,8 +31,6 @@ void intr_timer_handler(uint8_t intr_number)
     struct thread_pcb* cur_thread = get_running_thread();
     ASSERT(cur_thread->bound_detect == 0x20000803);
     cur_thread->all_tick ++;
-    // rie_puts("\r\n");
-    // rie_puti((uint32_t)&cur_thread->all_tick);
     if(cur_thread->tick == 0) {schedule();}
     else {cur_thread->tick --;}
 }
