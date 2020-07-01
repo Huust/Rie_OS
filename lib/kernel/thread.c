@@ -126,7 +126,7 @@ static void main_thread_register(void)
 
 void schedule(void)
 {
-    ASSERT(intr_close==get_status());
+    ASSERT(intr_close==intr_get_status());
     struct thread_pcb* cur_thread = get_running_thread();
     //fixme:若只有main线程，则第一次调度时会断言失败
     //ASSERT(!list_empty(&ready_list));
@@ -151,6 +151,37 @@ void schedule(void)
     switch_to(cur_thread, next_thread);
 }
 
+
+void thread_block(enum task_status status)
+{
+    ASSERT(status == TASK_BLOCK || status == TASK_WAITING   \
+            || status == TASK_SUSPEND);
+    //进入临界区
+    intr_status old_status = intr_get_status();
+    rie_intr_disable();
+
+    struct thread_pcb* current_thread = get_running_thread();
+    current_thread->status = status;
+
+    schedule();
+    //退出临界区
+    rie_intr_set(old_status);
+}
+
+
+void thread_unblock(struct thread_pcb* thread)
+{
+    //断言:状态判断;是否存在于ready_list中
+    ASSERT(thread->status != TASK_READY
+    && !elem_search(&ready_list, &thread->ready_list_elem));
+    intr_status old_status = intr_get_status();
+    rie_intr_disable();
+
+    thread->status = TASK_READY;
+    list_push(&ready_list, &thread->ready_list_elem);
+
+    rie_intr_set(old_status);
+}
 /*
 
 */

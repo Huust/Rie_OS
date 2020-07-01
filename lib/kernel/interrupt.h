@@ -14,6 +14,6 @@ void rie_intr_enable(void);
 void rie_intr_disable(void);
 void intr_handler_register(uint8_t irq_num,
                             void* function);
-intr_status get_status(void);
+intr_status intr_get_status(void);
 void rie_intr_set(intr_status status);
 #endif

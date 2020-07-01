@@ -162,7 +162,7 @@ function:实现开关中断
 
 intr_status old_status = intr_close;
 
-intr_status get_status(void)
+intr_status intr_get_status(void)
 {
     //获取eflag的值,存到eflags变量中
     uint32_t eflags = 0;
@@ -184,7 +184,7 @@ intr_status get_status(void)
 */
 void rie_intr_enable(void)
 {
-    intr_status current_status = get_status();
+    intr_status current_status = intr_get_status();
     if(current_status) {old_status = current_status;}
     else{
         old_status = current_status;
@@ -195,7 +195,7 @@ void rie_intr_enable(void)
 
 void rie_intr_disable(void)
 {
-    intr_status current_status = get_status();
+    intr_status current_status = intr_get_status();
     if(!current_status) {old_status = current_status;}
     else{
         old_status = current_status;
@@ -209,7 +209,7 @@ void rie_intr_disable(void)
 */
 void rie_intr_set(intr_status status)
 {
-    intr_status current_status = get_status();
+    intr_status current_status = intr_get_status();
     old_status = current_status;
     if(status == intr_close){
         asm volatile("cli" : : : "memory");

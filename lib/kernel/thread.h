@@ -18,6 +18,9 @@ typedef void thread_func(void* arg);
 enum task_status{
     TASK_RUNNING = 0,
     TASK_READY,
+    TASK_BLOCK,
+    TASK_WAITING,
+    TASK_SUSPEND
 };
 
 
@@ -100,5 +103,7 @@ void thread_start(const char* name,
                 uint8_t priority);
 struct thread_pcb* get_running_thread(void);
 void schedule(void);
+void thread_block(enum task_status status);
+void thread_unblock(struct thread_pcb* thread);
 void thread_init(void);
 #endif
