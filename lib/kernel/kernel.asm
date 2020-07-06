@@ -11,7 +11,6 @@ extern intr_handler
 section .data   ;此处data与下部分data在编译时合成一个
                 ;segment;从而使得dd的内容就接在
                 ;handler_entry_table的后面
-intr_info db 0x0d,0x0a,"interrupt occur",0x00
 global handler_entry_table
 handler_entry_table:
 
@@ -86,3 +85,18 @@ VECTOR 0x1f,no_error_code
 VECTOR 0x20,no_error_code       ;0x20==32,这个专门留给IRQ0时钟
                                 ;之所以只到0x20是因为目前只用到
                                 ;IRQ0时钟，需要其它INTR以后加上
+VECTOR 0x21,no_error_code
+VECTOR 0x22,no_error_code
+VECTOR 0x23,no_error_code
+VECTOR 0x24,no_error_code
+VECTOR 0x25,no_error_code
+VECTOR 0x26,no_error_code
+VECTOR 0x27,no_error_code
+VECTOR 0x28,no_error_code
+VECTOR 0x29,no_error_code
+VECTOR 0x2a,no_error_code
+VECTOR 0x2b,no_error_code
+VECTOR 0x2c,no_error_code
+VECTOR 0x2d,no_error_code
+VECTOR 0x2e,no_error_code
+VECTOR 0x2f,no_error_code

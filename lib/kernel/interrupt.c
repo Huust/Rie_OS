@@ -3,7 +3,7 @@
 #include "io.h"
 #include "interrupt.h"
 //descriptor number
-#define desc_number 33
+#define desc_number 48
 //eflag
 #define EFLAG_IF 0x00000200
 /*
@@ -65,8 +65,8 @@ static void pic_init(void)
     outb(PIC_S_ODD,0x02);
     outb(PIC_S_ODD,0x01);
     
-    //屏蔽R1-R15的中断请求
-    outb(PIC_M_ODD,0xfe);   //主ocw1高7位全部置1屏蔽
+    //屏蔽R0,R2-R15的中断请求
+    outb(PIC_M_ODD,0xfd);   //主ocw1高6位,最低位全部置1屏蔽
     outb(PIC_S_ODD,0xff);   //从ocw1的8位全部置1屏蔽
     
     rie_puts("pic init\r\n");

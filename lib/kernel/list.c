@@ -25,7 +25,7 @@ void list_init(struct list* list)
 */
 void list_insert(struct list_element* rear, struct list_element* elem) 
 {
-    intr_status status = get_status();
+    intr_status status = intr_get_status();
     rie_intr_disable();
     rear->prev->next = elem;
     elem->prev = rear->prev;
@@ -72,7 +72,7 @@ void list_append(struct list* list, struct list_element* elem)
 
 void list_remove(struct list_element* elem)
 {
-    intr_status status = get_status();
+    intr_status status = intr_get_status();
     rie_intr_disable();
     elem->prev->next = elem->next;
     elem->next->prev = elem->prev;

@@ -11,11 +11,11 @@ int main(void)
     all_init();
     //thread_start("funca", thread_a, "argA ", 8);
     //thread_start("funcb",thread_b, "argB", 21);
-    //rie_intr_enable();
+    rie_intr_enable();
     while(1){
-        rie_intr_disable();
-        rie_puts("Main ");
-        rie_intr_enable();
+        //rie_intr_disable();
+        //rie_puts("Main ");
+        //rie_intr_enable();
     }
     return 0;
 }

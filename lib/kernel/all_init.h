@@ -6,6 +6,7 @@
 #include "./memory.h"
 #include "./thread.h"
 #include "./timer.h"
+#include "./keyboard.h"
 
 void all_init(void);
 
