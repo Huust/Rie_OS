@@ -93,47 +93,47 @@ static void kbd_intr_handler(uint8_t intr_num)
         return ;
     }
 
-
     //判断是否与alt | ctrl有关
-    if (scan_code&0x7f == 0x1d || scan_code&0x7f == 0x38) {      
-        
+    if ((scan_code&0x7f) == 0x1d || (scan_code&0x7f) == 0x38) {      
         if (extern_flag) {extern_flag = 0;}
         
-        if ((scan_code & 0x80) == 0x80) {   //断码情况
+        if ((scan_code & 0x80) == 0x80) {   //扫描码为断码
             scan_code &= 0x7f;
-            if (scan_code == 0x1D) {ctrl_flag = 0;}
-            elseif (scan_code == 0x38) {alt_flag = 0;}
-
-            return ;
+            if (scan_code == 0x1d) {ctrl_flag = 0;}
+            else {alt_flag = 0;}
+        } else {
+            if (scan_code == 0x1d) {ctrl_flag = 1;}
+            else {alt_flag = 1;}
         }
-
-        if (scan_code == 0x1D) {ctrl_flag = 1;}
-        elseif (scan_code == 0x38) {alt_flag = 1;}
-
         return ;
     }
 
     //判断是否和shift有关
-    if (scan_code == 0x2a || scan_code == 0x36) {
-        shift_flag = 1;
-        return ;
-    } elseif ((scan_code & 0x7f) == 0x2a ||(scan_code & 0x7f) == 0x36) {
-        shift_flag = 0;
+    if ((scan_code & 0x7f) == 0x2a ||(scan_code & 0x7f) == 0x36) {
+        if ((scan_code & 0x80) == 0x80) {   //扫描码为断码
+            shift_flag = 0;
+        } else {
+            shift_flag = 1;
+        }
         return ;
     }
 
     //判断是否和capslock有关
-    //capslock:摁下即为大写激活;但是想要取消大写只摁下去没有用(必须松开后)
-    if (scan_code == 0x3a) {
-        if (capslock_flag == 0) {capslock_flag = 1;}
-        return ;
-    }
-    elseif ((scan_code & 0x80 == 0x80)&&((scan_code & 0x7f) == 0x3a)) {
-        if (capslock_flag == 1) {capslock_flag = 0;}
+    /*capslock:简化了步骤,认为必须是松开后才是一个完整动作
+    note:实际上,capslock特征是:灯未亮时摁下即开启大写;
+    灯亮时,摁下不会恢复小写,直到松手.
+    这么写要引入新变量,得不偿失,所以干脆简化了capslock的实现*/
+    if ((scan_code & 0x7f) == 0x3a) {
+        if ((scan_code & 0x80) == 0x80) {
+            capslock_flag = (~capslock_flag)&0x01;
+        }
         return ;
     }
 
 
+
+
+    //fixme:忘记考虑断码的情况了
     //根据标志位开始正式做判断
     //若scancode为字母
     if ((0x10 <= scan_code && scan_code <= 0x19)
@@ -142,25 +142,32 @@ static void kbd_intr_handler(uint8_t intr_num)
 
         if (capslock_flag == shift_flag) {
             rie_putc(keymap[scan_code][0]);
-            return ;
         } else {
             rie_putc(keymap[scan_code][1]);
-            return ;
         }
         
     } else {
+        if (scan_code == 0x1c) {
+            rie_puts("\r\n");
+            return ;
+        }
+        if (scan_code > 0x3a) {return ;}    //默认无效扫描码
         rie_putc(keymap[scan_code][shift_flag]);
-        return ;
     }
-
+    return ;
 }
 
 
-//测试键盘按键扫描码
+/*kbd_test
+@function:
+    测试查看键盘按键的扫描码
+@notes:
+    主要用于调试
+*/
 static void kbd_test(uint8_t intr_num)
 {
-    rie_putc('h');
-    inb(KBD_BUF_PORT);      //没有传递返回值,但因为是读端口所以存放在了ax寄存器中
+    uint8_t scan_code = inb(KBD_BUF_PORT);      //没有传递返回值,但因为是读端口所以存放在了ax寄存器中
+    rie_puti((uint32_t)scan_code);
 }
 
 void keyboard_init()
