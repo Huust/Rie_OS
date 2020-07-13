@@ -14,4 +14,10 @@ struct lock {
     uint32_t repeat_num;    //持有者反复持有次数
     struct semaphore sem;
 };
+
+
+void lock_init(struct lock* plock);
+void lock_acquire(struct lock* plock);
+void lock_release(struct lock* plock);
+
 #endif
