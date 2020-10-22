@@ -6,6 +6,7 @@
 #include "../string.h"
 #include "./list.h"
 #include "./interrupt.h"
+#include "./process.h"
 
 /*定义一个通用的函数类型
 方便后期广泛使用函数指针
@@ -26,7 +27,10 @@ enum task_status{
 
 /*定义中断栈intr_stack
 @function:
-    线程运行中，被中断等异常打断时，寄存器值压栈到该结构体内
+    (×)线程运行中，被中断等异常打断时，寄存器值压栈到该结构体内
+    (√)内核线程->用户进程 时，需要使用中断实现特权转移，为了复用kernel.asm
+    中iretd执行前的pop操作，所以使用intr_stack存放被pop出来的数据；同时利
+    用这次pop操作，为即将执行的用户进程提供新的寄存器环境
 */
 struct intr_stack{
     uint32_t vec_no;
@@ -53,7 +57,9 @@ struct intr_stack{
 /*定义线程栈thread_stack
 @function:
     线程之间正常调度时，保存线程的一些寄存器值；
-    同时保存了线程对应的函数入口地址，方便跳转
+    同时保存了执行线程内容的函数的入口地址，方便跳转
+    thread_stack存放 内核线程 调度时需要的值；
+    intr_stack存放 用户进程 调度时需要的值
 */
 struct thread_stack{
     uint32_t ebp;
@@ -78,7 +84,9 @@ struct thread_stack{
     保存线程信息，如name priority stack_pointer等
 */
 struct thread_pcb{
-    uint32_t stack_ptr;    //栈顶指针
+    uint32_t stack_ptr;     //栈顶指针
+                            //pcb_enroll()中：初始化为申请得到的
+                            //页地址 + page_size
 
     thread_func* function;
     void* arg;
@@ -89,7 +97,10 @@ struct thread_pcb{
     uint8_t tick;           //时间片
     uint32_t all_tick;      //该线程运行的总时长
 
-    uint32_t* vaddr;        //若为进程，还需要有虚拟地址
+    uint32_t* pt_vaddr;         //页目录表的地址;用户进程被调度前将
+                                //该成员值将被载入CR3实现页表切换
+
+    struct virtual_pool user_heap;
     
     struct list_element all_list_elem;
 
@@ -101,9 +112,19 @@ void thread_start(const char* name,
                 thread_func* function, 
                 void* arg, 
                 uint8_t priority);
+
+void thread_create(struct thread_pcb * pthread,
+                    thread_func* function,
+                    void* arg);
+
+void pcb_enroll(struct thread_pcb* pthread,
+                const char* name, 
+                uint8_t priority);
+
 struct thread_pcb* get_running_thread(void);
 void schedule(void);
 void thread_block(enum task_status status);
 void thread_unblock(struct thread_pcb* thread);
 void thread_init(void);
+
 #endif

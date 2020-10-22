@@ -4,7 +4,7 @@
 #include "../string.h"
 #include "./debug.h"
 typedef struct bit_map{
-    uint8_t* bitmap_set;    //指向存放位图的数组
+    uint32_t* bitmap_set;    //指向存放位图的数组
     uint32_t bitmap_len;    //数组的长度(byte为单位)
 }bitmap; 
 

@@ -92,7 +92,7 @@ static void kernel_virtual_pool_init(void)
 
     rie_puts("kernel_heap_init start\r\n");
 
-    //bitmap数组存放的位置(跟着物理内存池bitmap)
+    //虚拟内存池管理的bitmap数组存放的位置(跟在物理内存池bitmap的后面)
     kernel_heap.pool_bitmap.bitmap_set = (uint8_t*)(BITMAP_BASE_ADDR + \
     kernel_pool.pool_bitmap.bitmap_len + user_pool.pool_bitmap.bitmap_len);
 
@@ -149,8 +149,17 @@ static uint32_t vmalloc(enum mem_apply applicant, uint32_t page_num)
     //首先内核的虚拟内存池bitmap查看是否存在连续也可用
     if(applicant == APP_KERNEL){
         bitmap_idx = bitmap_scan(kernel_heap.pool_bitmap, page_num);
-    }else{
-        //note:内存申请对象是user，暂时不做考虑
+    }else if(applicant == APP_USER){
+        struct thread_pcb* cur_thread = get_running_thread();
+        bitmap_idx = bitmap_scan(cur_thread->user_heap.pool_bitmap, page_num);
+
+        if (bitmap_idx != -1) {
+            for(int32_t i = bitmap_idx;i < bitmap_idx+page_num;i++)
+            {bitmap_setval(cur_thread->user_heap.pool_bitmap,i,1);}            
+            return (cur_thread->user_heap.pool_start + bitmap_idx * PAGE_SIZE);
+        } else { 
+            return 0;
+        }
     }
     
     if(bitmap_idx == -1){return 0;}
@@ -166,7 +175,8 @@ static uint32_t vmalloc(enum mem_apply applicant, uint32_t page_num)
 
 /*get_vaddr_pte
 @function:
-    获取已知虚拟地址的pte地址(也是用虚拟地址表示)
+    对传入参数(也就是某一虚拟地址)访问是需要使用某一pde和pte的;
+    而该函数就是利用传入虚拟地址,推导出它所需要的pte的虚拟地址
 @param:
     vaddr：虚拟地址
 @return:
@@ -179,14 +189,16 @@ static uint32_t get_vaddr_pte(uint32_t vaddr)
 
 /*get_vaddr_pde
 @function:
-    获取已知虚拟地址的pde地址(也是用虚拟地址表示)
+    对传入参数(也就是某一虚拟地址)访问是需要使用某一pde和pte的;
+    而该函数就是利用传入虚拟地址,推导出它所需要的pde的虚拟地址
 @param:
     vaddr：虚拟地址
 @return:
     pde地址(虚拟地址，方便之后直接读写那部分内容)
 @conception:
     见chapter9.md 三次欺骗cpu
-    pde部分要做两次索引第1024个pde
+    制作一个新的地址,该地址特点是高10位or20位都是设置为访问pde;仅在最后一步
+    模仿传入的vaddr,达到访问该虚拟地址pde的效果
 */
 static uint32_t get_vaddr_pde(uint32_t vaddr)
 {
@@ -194,6 +206,15 @@ static uint32_t get_vaddr_pde(uint32_t vaddr)
 }
 
 
+/*addr_v2p
+@function:
+    将传入的虚拟地址转换成物理地址
+*/
+uint32_t addr_v2p(uint32_t vaddr)
+{
+    uint32_t* vaddr_pte = (uint32_t*)get_vaddr_pte(vaddr);
+    return ((*vaddr_pte & 0xfffff000) + (vaddr & 0x00000fff));
+}
 /*
 @function:
     物理页的分配(每次调用只能分配1页)
@@ -289,19 +310,18 @@ static uint32_t page_malloc(enum mem_apply applicant, uint32_t page_num)
     struct physical_pool pool;
     pool = (applicant == APP_KERNEL)?kernel_pool:user_pool;
     
-    if(applicant == APP_KERNEL){
-        while(cnt--){
-            page_paddr = pmalloc(pool);
-            if(page_paddr == 0) {
-                /*因为物理页每次分配一页，所以可能在中途就没有空闲页了
-                此时需要将之前已做好映射的内存全部回滚*/
-                //todo:在之后的内存回收部分将完成虚拟页、物理页的回收
-                return 1;
-            }
-            mem_map(page_vaddr + offset,page_paddr);
-            offset += PAGE_SIZE;
+    while(cnt--){
+        page_paddr = pmalloc(pool);
+        if(page_paddr == 0) {
+            /*因为物理页每次分配一页，所以可能在中途就没有空闲页了
+            此时需要将之前已做好映射的内存全部回滚*/
+            //todo:在之后的内存回收部分将完成虚拟页、物理页的回收
+            return 1;
         }
+        mem_map(page_vaddr + offset,page_paddr);
+        offset += PAGE_SIZE;
     }
+    
     return page_vaddr;
 }
 
@@ -322,3 +342,12 @@ void* get_kernel_page(uint32_t page_num)
     return (void*)page_vaddr;
 }
 
+
+
+void* get_user_page(uint32_t page_num)
+{
+    uint32_t page_vaddr = page_malloc(APP_USER,page_num);
+    if((page_vaddr == 0)||(page_vaddr == 1)) {return NULL;}
+    rie_memset((void*)page_vaddr,0,page_num * PAGE_SIZE);
+    return (void*)page_vaddr;
+}

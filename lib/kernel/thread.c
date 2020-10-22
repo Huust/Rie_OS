@@ -15,6 +15,11 @@ struct thread_pcb* main_thread;
 struct list all_list;
 struct list ready_list;
 
+
+/*kernel_thread
+@function:
+    由thread_stack中的eip指针指向的同函数类型
+*/
 void kernel_thread(thread_func* function, 
                     void* arg)
 {
@@ -22,10 +27,11 @@ void kernel_thread(thread_func* function,
 }
 
 
-/*
-
+/*pcb_enroll
+@function:
+    pcb登记:填充线程pcb的内容
 */
-static void pcb_register(struct thread_pcb* pthread,
+void pcb_enroll(struct thread_pcb* pthread,
                 const char* name, 
                 uint8_t priority)
 {
@@ -35,7 +41,7 @@ static void pcb_register(struct thread_pcb* pthread,
     pthread->bound_detect = 0x20000803;
     pthread->tick = 32 - priority;  //note:prior小代表优先级大
     pthread->all_tick = 0;
-    pthread->vaddr = NULL;
+    pthread->pt_vaddr = NULL;
     //fixme:对于main thread这个stack_ptr是不是太高了
     pthread->stack_ptr = (uint32_t)pthread + PAGE_SIZE;
     if(pthread == main_thread)
@@ -45,10 +51,12 @@ static void pcb_register(struct thread_pcb* pthread,
 }
 
 
-/*
-
+/*thread_create
+@function:
+    在已经分配好的1页线程堆内存中,进一步划分intr_stack,thread_stack
+    并且完善线程栈
 */
-static void thread_create(struct thread_pcb * pthread,
+void thread_create(struct thread_pcb * pthread,
                     thread_func* function,
                     void* arg)
 {
@@ -73,9 +81,10 @@ static void thread_create(struct thread_pcb * pthread,
 }
 
 
-/*
-@param:
-
+/*thread_start
+@function:
+    线程启动:包括 pcb注册 | 线程栈分配 | 线程信息加入线程队列以供
+    调度器使用
 */
 void thread_start(const char* name, 
                 thread_func* function, 
@@ -84,10 +93,9 @@ void thread_start(const char* name,
 {
     //内核物理内存中分配一页用来创建PCB
     struct thread_pcb * thread = get_kernel_page(1);
-    rie_memset(thread, 0, sizeof(struct thread_pcb));
 
-    //PCB初始化工作交给thread_init()   thread_create()
-    pcb_register(thread, name, priority);
+    //PCB初始化工作交给pcb_enroll()   thread_create()
+    pcb_enroll(thread, name, priority);
     thread_create(thread, function, arg);
 
 
@@ -118,7 +126,7 @@ static void main_thread_register(void)
 {
     main_thread = get_running_thread();
     //获得main thread的pcb后填充pcb内容
-    pcb_register(main_thread,"main",1);
+    pcb_enroll(main_thread,"main",1);
     ASSERT(!elem_search(&all_list, &main_thread->all_list_elem));
     list_append(&all_list, &main_thread->all_list_elem);
 }
@@ -147,6 +155,8 @@ void schedule(void)
                             offset(struct thread_pcb, ready_list_elem));
 
     next_thread->status = TASK_RUNNING;
+
+    pt_activate(next_thread);
 
     switch_to(cur_thread, next_thread);
 }

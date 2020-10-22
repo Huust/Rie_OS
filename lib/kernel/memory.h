@@ -1,10 +1,12 @@
 #ifndef _MEMORY_H_
 #define _MEMORY_H_
+
 #include "bitmap.h"
 #include "./print.h"
 #include "../stdint.h"
 #include "../string.h"
 #include "./debug.h"
+#include "./thread.h"
 
 #define PAGE_SIZE 4096      //4kb = 4096b
 
@@ -17,6 +19,7 @@
 
 void mem_struct_init(uint32_t all_mem,uint32_t page_num);
 void* get_kernel_page(uint32_t page_num);
+uint32_t addr_v2p(uint32_t vaddr);
 
 /*
 虚拟内存池
