@@ -23,6 +23,12 @@ struct list ready_list;
 void kernel_thread(thread_func* function, 
                     void* arg)
 {
+    /*  
+        某个线程第一次被调度上去会执行kernel_thread()；
+        因为执行流跑到这里了所以此时中断是关闭的
+        所以需要打开中断，否则即将运行的线程就不能被时钟中断调度下来了 
+    */
+    rie_intr_enable();
     function(arg);
 }
 
@@ -70,7 +76,7 @@ void thread_create(struct thread_pcb * pthread,
     //eip函数指针指向统一调用线程的那个函数，方便之后ret跳转
     thread_stack->eip = kernel_thread;
 
-    //第一次被加载线程，初始化四个寄存器的值
+    //第一次被加载的线程，初始化四个寄存器的值以供pop(switch_to.asm line19)使用
     thread_stack->ebp = 0;
     thread_stack->ebx = 0;
     thread_stack->edi = 0;
@@ -126,7 +132,7 @@ static void main_thread_register(void)
 {
     main_thread = get_running_thread();
     //获得main thread的pcb后填充pcb内容
-    pcb_enroll(main_thread,"main",1);
+    pcb_enroll(main_thread,"main",20);
     ASSERT(!elem_search(&all_list, &main_thread->all_list_elem));
     list_append(&all_list, &main_thread->all_list_elem);
 }
@@ -150,8 +156,8 @@ void schedule(void)
 
     struct list_element* next_elem = list_pop(&ready_list);
     //通过next_elem成员地址反推其结构体地址
-    struct thread_pcb* next_thread = elem2pcb(struct thread_pcb, 
-                                            next_elem, 
+    struct thread_pcb* next_thread = elem2pcb(struct thread_pcb, \
+                                            next_elem, \
                             offset(struct thread_pcb, ready_list_elem));
 
     next_thread->status = TASK_RUNNING;

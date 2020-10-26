@@ -65,8 +65,8 @@ static void pic_init(void)
     outb(PIC_S_ODD,0x02);
     outb(PIC_S_ODD,0x01);
     
-    //屏蔽R0,R2-R15的中断请求
-    outb(PIC_M_ODD,0xfd);   //主ocw1高6位,最低位全部置1屏蔽
+    //负责控制8259A的中断屏蔽
+    outb(PIC_M_ODD,0xfe);   //主ocw1高6位,最低位全部置1屏蔽
     outb(PIC_S_ODD,0xff);   //从ocw1的8位全部置1屏蔽
     
     rie_puts("pic init\r\n");

@@ -61,10 +61,10 @@ struct intr_stack{
     intr_stack存放 用户进程 调度时需要的值
 */
 struct thread_stack{
-    uint32_t ebp;
-    uint32_t ebx;
-    uint32_t edi;
     uint32_t esi;
+    uint32_t edi;
+    uint32_t ebx;
+    uint32_t ebp;
     void (*eip) (thread_func* function,
                     void* func_arg);
 
