@@ -1,8 +1,8 @@
 #include "./print.h"
 #include  "./all_init.h"
 
-void thread_a(void* arg);
-void thread_b(void* arg);
+// void thread_a(void* arg);
+// void thread_b(void* arg);
 
 
 int main(void)
@@ -20,18 +20,18 @@ int main(void)
     return 0;
 }
 
-void thread_a(void* arg)
-{
-    char* a = (char*)arg;
-    while(1){
-        rie_puts(a);
-    }
-}
+// void thread_a(void* arg)
+// {
+//     char* a = (char*)arg;
+//     while(1){
+//         rie_puts(a);
+//     }
+// }
 
-void thread_b(void* arg)
-{
-    char* b = (char*)arg;
-    while(1){
-        rie_puts(b);
-    }
-}
+// void thread_b(void* arg)
+// {
+//     char* b = (char*)arg;
+//     while(1){
+//         rie_puts(b);
+//     }
+// }

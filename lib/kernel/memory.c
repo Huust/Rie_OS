@@ -43,8 +43,8 @@ static void physical_pool_init(uint32_t all_mem,uint32_t page_num)
 
 
     //bitmap数组存放的位置
-    kernel_pool.pool_bitmap.bitmap_set = (uint8_t*)BITMAP_BASE_ADDR;
-    user_pool.pool_bitmap.bitmap_set = (uint8_t*)(BITMAP_BASE_ADDR + \
+    kernel_pool.pool_bitmap.bitmap_set = (uint32_t*)BITMAP_BASE_ADDR;
+    user_pool.pool_bitmap.bitmap_set = (uint32_t*)(BITMAP_BASE_ADDR + \
     kernel_pool.pool_bitmap.bitmap_len);    //user bitmap紧跟在kernel bitmap后面
 
 
@@ -93,7 +93,7 @@ static void kernel_virtual_pool_init(void)
     rie_puts("kernel_heap_init start\r\n");
 
     //虚拟内存池管理的bitmap数组存放的位置(跟在物理内存池bitmap的后面)
-    kernel_heap.pool_bitmap.bitmap_set = (uint8_t*)(BITMAP_BASE_ADDR + \
+    kernel_heap.pool_bitmap.bitmap_set = (uint32_t*)(BITMAP_BASE_ADDR + \
     kernel_pool.pool_bitmap.bitmap_len + user_pool.pool_bitmap.bitmap_len);
 
     //bitmap数组长度

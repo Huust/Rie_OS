@@ -8,7 +8,7 @@
 #define PROCESS_VADDR_START 0x8048000
 #define KERNEL_VADDR_START 0xc0000000
 
-void pt_activate(struct thread_pcb* pthread);
+//void pt_activate(struct thread_pcb* pthread);
 
 #endif
 

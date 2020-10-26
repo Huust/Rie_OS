@@ -19,7 +19,7 @@ $(BUILD_DIR)/switch_to.o $(BUILD_DIR)/all_init.o $(BUILD_DIR)/keyboard.o
 #gcc编译
 #基本上依赖文件都包含stdint.h，所以不需要额外以来该头文件
 #注意$@和$<等伪指令是包含文件路径的，所以文件存放位置已经确定
-$(BUILD_DIR)/main.o:$(KERNEL_DIR)/main.c $(KERNEL_DIR)/print.h $(KERNEL_DIR)/interrupt.h $(KERNEL_DIR)/debug.h	#main.c包含的.h头文件
+$(BUILD_DIR)/main.o:$(KERNEL_DIR)/main.c $(KERNEL_DIR)/print.h $(KERNEL_DIR)/interrupt.h $(KERNEL_DIR)/all_init.h	#main.c包含的.h头文件
 	$(CC) $(CCFLAG) -o $@ $<
 
 $(BUILD_DIR)/interrupt.o:$(KERNEL_DIR)/interrupt.c $(KERNEL_DIR)/global.h $(KERNEL_DIR)/print.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/interrupt.h
@@ -43,7 +43,7 @@ $(BUILD_DIR)/list.o:$(KERNEL_DIR)/list.c $(KERNEL_DIR)/print.h $(KERNEL_DIR)/int
 $(BUILD_DIR)/timer.o:$(KERNEL_DIR)/timer.c $(KERNEL_DIR)/memory.h $(KERNEL_DIR)/print.h $(KERNEL_DIR)/list.h $(LIB_DIR)/string.h
 	$(CC) $(CCFLAG) -o $@ $<
 
-$(BUILD_DIR)/thread.o:$(KERNEL_DIR)/thread.c $(KERNEL_DIR)/memory.h $(KERNEL_DIR)/print.h $(KERNEL_DIR)/list.h $(LIB_DIR)/string.h
+$(BUILD_DIR)/thread.o:$(KERNEL_DIR)/thread.c $(KERNEL_DIR)/memory.h $(KERNEL_DIR)/print.h $(KERNEL_DIR)/list.h $(LIB_DIR)/string.h $(KERNEL_DIR)/thread.h
 	$(CC) $(CCFLAG) -o $@ $<
 
 $(BUILD_DIR)/all_init.o:$(KERNEL_DIR)/all_init.c $(KERNEL_DIR)/all_init.h $(KERNEL_DIR)/interrupt.h $(KERNEL_DIR)/memory.h $(KERNEL_DIR)/thread.h $(KERNEL_DIR)/timer.h

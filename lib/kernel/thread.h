@@ -3,16 +3,15 @@
 
 #include "./debug.h"
 #include "./memory.h"
+#include "./bitmap.h"
 #include "../string.h"
 #include "./list.h"
 #include "./interrupt.h"
-#include "./process.h"
-
+//#include "./process.h"
 /*定义一个通用的函数类型
 方便后期广泛使用函数指针
 */
 typedef void thread_func(void* arg);
-
 /*task_status
 线程状态（目前仅有运行态和就绪态）
 */
@@ -66,7 +65,6 @@ struct thread_stack{
     uint32_t ebx;
     uint32_t edi;
     uint32_t esi;
-
     void (*eip) (thread_func* function,
                     void* func_arg);
 
@@ -100,7 +98,8 @@ struct thread_pcb{
     uint32_t* pt_vaddr;         //页目录表的地址;用户进程被调度前将
                                 //该成员值将被载入CR3实现页表切换
 
-    struct virtual_pool user_heap;
+    struct virtual_pool user_heap;  //如果是用户进程，则在该pcb中
+                                    //有负责管理堆内存的结构体
     
     struct list_element all_list_elem;
 

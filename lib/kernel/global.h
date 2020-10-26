@@ -65,22 +65,18 @@ s 为 1 时表示存储段,为 0 时表示系统段
 ((DESC_G_4K << 7) + (DESC_D_32 << 6) + (DESC_L << 5) + (DESC_AVL << 4))
 
 #define GDT_CODE_ATTR_LOW_DPL3 \
-((DESC_P << 7) + (DESC_DPL_3 << 5) + (DESC_S_CODE << 4) + \
-DESC_TYPE_CODE)
+((DESC_P << 7) + (DESC_DPL_3 << 5) + (DESC_S_CODE << 4) + DESC_TYPE_CODE)
 
 #define GDT_DATA_ATTR_LOW_DPL3 \
-((DESC_P << 7) + (DESC_DPL_3 << 5) + (DESC_S_DATA << 4) + \
-DESC_TYPE_DATA)
+((DESC_P << 7) + (DESC_DPL_3 << 5) + (DESC_S_DATA << 4) + DESC_TYPE_DATA)
 
 #define TSS_DESC_D 0
 
-#define TSS_ATTR_HIGH
-((DESC_G_4K << 7) + (TSS_DESC_D << 6) + (DESC_L << 5) + \
-(DESC_AVL << 4) + 0x0)
+#define TSS_ATTR_HIGH \
+((DESC_G_4K << 7) + (TSS_DESC_D << 6) + (DESC_L << 5) + (DESC_AVL << 4) + 0x0)
 
-#define TSS_ATTR_LOW 
-((DESC_P << 7) + (DESC_DPL_0 << 5) +(DESC_S_SYS << 4) + \
-DESC_TYPE_TSS)
+#define TSS_ATTR_LOW  \
+((DESC_P << 7) + (DESC_DPL_0 << 5) +(DESC_S_SYS << 4) + DESC_TYPE_TSS)
 
 #define SELECTOR_TSS ((4 << 3) + (TI_GDT << 2 ) + RPL0)
 

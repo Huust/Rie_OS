@@ -156,7 +156,7 @@ void schedule(void)
 
     next_thread->status = TASK_RUNNING;
 
-    pt_activate(next_thread);
+    //pt_activate(next_thread);
 
     switch_to(cur_thread, next_thread);
 }
