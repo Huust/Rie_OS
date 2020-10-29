@@ -7,7 +7,7 @@
 void console_init(void);
 void console_acquire(void);
 void console_release(void);
-void console_puts(char* str);
-void console_putc(uint8_t char);
-void console_puti(uint32_t num);
+void console_puts(char* mystr);
+void console_putc(uint8_t mychar);
+void console_puti(uint32_t mynum);
 #endif

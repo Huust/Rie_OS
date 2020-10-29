@@ -14,7 +14,8 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/interrupt.o\
 $(BUILD_DIR)/debug.o $(BUILD_DIR)/print.o $(BUILD_DIR)/kernel.o\
 $(BUILD_DIR)/string.o $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/memory.o\
 $(BUILD_DIR)/list.o $(BUILD_DIR)/timer.o $(BUILD_DIR)/thread.o \
-$(BUILD_DIR)/switch_to.o $(BUILD_DIR)/all_init.o $(BUILD_DIR)/keyboard.o
+$(BUILD_DIR)/switch_to.o $(BUILD_DIR)/sync.o $(BUILD_DIR)/console.o \
+$(BUILD_DIR)/all_init.o $(BUILD_DIR)/keyboard.o
 
 #gcc编译
 #基本上依赖文件都包含stdint.h，所以不需要额外以来该头文件
@@ -50,6 +51,12 @@ $(BUILD_DIR)/all_init.o:$(KERNEL_DIR)/all_init.c $(KERNEL_DIR)/all_init.h $(KERN
 	$(CC) $(CCFLAG) -o $@ $<
 
 $(BUILD_DIR)/keyboard.o:$(KERNEL_DIR)/keyboard.c $(KERNEL_DIR)/print.h $(KERNEL_DIR)/interrupt.h $(KERNEL_DIR)/io.h
+	$(CC) $(CCFLAG) -o $@ $<
+
+$(BUILD_DIR)/sync.o:$(KERNEL_DIR)/sync.c $(KERNEL_DIR)/list.h $(KERNEL_DIR)/interrupt.h $(KERNEL_DIR)/thread.h
+	$(CC) $(CCFLAG) -o $@ $<
+
+$(BUILD_DIR)/console.o:$(KERNEL_DIR)/console.c $(KERNEL_DIR)/print.h $(KERNEL_DIR)/sync.h
 	$(CC) $(CCFLAG) -o $@ $<
 
 #nasm编译

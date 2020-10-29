@@ -1,9 +1,10 @@
 #include "./sync.h"
 extern struct list ready_list;
 
-void sem_init(struct semaphore* sem)
+/* semaphore初始化   sem_value:信号量的值（1代表互斥信号量）*/
+void sem_init(struct semaphore* sem, uint8_t sem_value)
 {
-    sem->value = 1;
+    sem->value = sem_value;
     list_init(&sem->wait_list);
 }
 
@@ -11,7 +12,7 @@ void lock_init(struct lock* plock)
 {
     plock->owner = NULL;
     plock->repeat_num = 0;
-    sem_init(plock->sem);
+    sem_init(&plock->sem, 1);
 }
 
 /*
@@ -46,7 +47,7 @@ void sem_up(struct semaphore* sem)
     intr_status old_status = intr_get_status();
     rie_intr_disable();
 
-    ASSERT(sem->value == 0);
+    ASSERT(sem->value == 0);    /* 只考虑最基本的互斥信号量 */
     if (!list_empty(&sem->wait_list)) {
         list_push(&ready_list, list_pop(&sem->wait_list));
     }
@@ -77,6 +78,7 @@ void lock_release(struct lock* plock)
         plock->repeat_num -- ;
         return;
     } else {
+        ASSERT(plock->repeat_num == 1);
         plock->owner = NULL;
         plock->repeat_num = 0;
         sem_up(&plock->sem);

@@ -48,7 +48,6 @@ void pcb_enroll(struct thread_pcb* pthread,
     pthread->tick = 32 - priority;  //note:prior小代表优先级大
     pthread->all_tick = 0;
     pthread->pt_vaddr = NULL;
-    //fixme:对于main thread这个stack_ptr是不是太高了
     pthread->stack_ptr = (uint32_t)pthread + PAGE_SIZE;
     if(pthread == main_thread)
         pthread->status = TASK_RUNNING;
@@ -142,8 +141,6 @@ void schedule(void)
 {
     ASSERT(intr_close==intr_get_status());
     struct thread_pcb* cur_thread = get_running_thread();
-    //fixme:若只有main线程，则第一次调度时会断言失败
-    //ASSERT(!list_empty(&ready_list));
     
     if(cur_thread->status == TASK_RUNNING){
         cur_thread->tick = 32 - cur_thread->prior;
@@ -151,7 +148,8 @@ void schedule(void)
         
         list_append(&ready_list, &cur_thread->ready_list_elem);
     }else{
-        //todo:非时间片原因造成的schedule；暂时不做讨论
+        /* 非时间片调度， 比如某个thread因为block而调用schedule() */
+        /* 线程无法通过时间片自动被调度执行，所以不能append到ready_list */
     }
 
     struct list_element* next_elem = list_pop(&ready_list);
