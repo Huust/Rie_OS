@@ -15,7 +15,7 @@ int main(void)
     rie_intr_enable();
     while(1){
         // rie_intr_disable();
-        rie_puts("main1 ");
+        // rie_puts("main1 ");
         // rie_intr_enable();
         // console_puts("main1 ");
     }

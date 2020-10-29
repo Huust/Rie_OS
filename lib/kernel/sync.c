@@ -25,15 +25,17 @@ void sem_down(struct semaphore* sem)
     intr_status old_status = intr_get_status();
     rie_intr_disable();
 
-    struct thread_pcb* current_thread = get_running_thread();
+    // struct thread_pcb* current_thread = get_running_thread();
 
     while (sem->value == 0) {
+        struct thread_pcb* current_thread = get_running_thread();
+
         //判断wait_list中是否已有该线程的elem
         ASSERT(!elem_search(&sem->wait_list, 
-                            &current_thread->ready_list_elem));
+                            &current_thread->all_list_elem));
 
         //todo:修改ready_list_elem名称,因为它不仅仅存放于ready_list中
-        list_append(&sem->wait_list, &current_thread->ready_list_elem);
+        list_append(&sem->wait_list, &current_thread->all_list_elem);
         thread_block(TASK_BLOCK);
     }
     sem->value --;
@@ -49,9 +51,14 @@ void sem_up(struct semaphore* sem)
 
     ASSERT(sem->value == 0);    /* 只考虑最基本的互斥信号量 */
     if (!list_empty(&sem->wait_list)) {
-        list_push(&ready_list, list_pop(&sem->wait_list));
+        struct thread_pcb* thread_blocked = elem2pcb(struct thread_pcb, \
+                                                list_pop(&sem->wait_list), \
+                                    offset(struct thread_pcb, ready_list_elem));        
+        thread_unblock(thread_blocked);
     }
     sem->value ++;
+
+    ASSERT(sem->value == 1);
 
     rie_intr_set(old_status);
 }
@@ -59,12 +66,13 @@ void sem_up(struct semaphore* sem)
 //note:注意,这才是线程真正需要调用的函数
 void lock_acquire(struct lock* plock)
 {
+    struct thread_pcb* cur_thread = get_running_thread();
     //todo:作者没有加锁,但我感觉需要加
-    if (plock->owner != get_running_thread()) {
+    if (plock->owner != cur_thread) {
         sem_down(&plock->sem);
         ASSERT(plock->repeat_num == 0);
         plock->repeat_num = 1;
-        plock->owner = get_running_thread();
+        plock->owner = cur_thread;
     } else {
         plock->repeat_num ++ ;
     }
@@ -73,14 +81,20 @@ void lock_acquire(struct lock* plock)
 void lock_release(struct lock* plock)
 {
     //确保只有锁的拥有者才能释放锁
+    // struct thread_pcb* cur_thread = get_running_thread();
+    // rie_puti((uint32_t)(plock->owner));
+    // rie_putc(' ');
+    // rie_puti((uint32_t)cur_thread);
+    // rie_putc(' ');
     ASSERT(plock->owner == get_running_thread());
     if (plock->repeat_num > 1) {
         plock->repeat_num -- ;
         return;
-    } else {
-        ASSERT(plock->repeat_num == 1);
-        plock->owner = NULL;
-        plock->repeat_num = 0;
-        sem_up(&plock->sem);
-    }
+    } 
+
+    ASSERT(plock->repeat_num == 1);
+    plock->owner = NULL;
+    plock->repeat_num = 0;
+    sem_up(&plock->sem);
+
 }

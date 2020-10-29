@@ -3,14 +3,6 @@
 //调用switch_to.asm中的switch_to()函数
 extern void switch_to(struct thread_pcb*, struct thread_pcb*);
 
-//宏函数，通过结构体成员地址反推结构体地址
-#define offset(struct_type, member)     \
-(uint32_t)(&((struct_type*)0)->member)      //这边仅仅是读操作,没有写所以不涉及非法访问
-
-#define elem2pcb(struct_type, member, offset)      \
-(struct_type*)((uint32_t)member - offset)
-
-
 struct thread_pcb* main_thread;
 struct list all_list;
 struct list ready_list;
@@ -45,7 +37,7 @@ void pcb_enroll(struct thread_pcb* pthread,
     rie_memcpy(name,pthread->name,sizeof(name));
     pthread->prior = priority;
     pthread->bound_detect = 0x20000803;
-    pthread->tick = 32 - priority;  //note:prior小代表优先级大
+    pthread->tick = 32 - priority;  //prior小代表优先级大
     pthread->all_tick = 0;
     pthread->pt_vaddr = NULL;
     pthread->stack_ptr = (uint32_t)pthread + PAGE_SIZE;
@@ -131,7 +123,7 @@ static void main_thread_register(void)
 {
     main_thread = get_running_thread();
     //获得main thread的pcb后填充pcb内容
-    pcb_enroll(main_thread,"main",20);
+    pcb_enroll(main_thread,"main",10);
     ASSERT(!elem_search(&all_list, &main_thread->all_list_elem));
     list_append(&all_list, &main_thread->all_list_elem);
 }
@@ -183,16 +175,16 @@ void thread_block(enum task_status status)
 }
 
 
-void thread_unblock(struct thread_pcb* thread)
+void thread_unblock(struct thread_pcb* pthread)
 {
-    //断言:状态判断;是否存在于ready_list中
-    ASSERT(thread->status != TASK_READY
-    && !elem_search(&ready_list, &thread->ready_list_elem));
     intr_status old_status = intr_get_status();
     rie_intr_disable();
 
-    thread->status = TASK_READY;
-    list_push(&ready_list, &thread->ready_list_elem);
+    //断言:状态判断;是否存在于ready_list中
+    ASSERT(pthread->status != TASK_READY
+    && !elem_search(&ready_list, &pthread->ready_list_elem));
+    list_push(&ready_list, &pthread->ready_list_elem);
+    pthread->status = TASK_READY;
 
     rie_intr_set(old_status);
 }

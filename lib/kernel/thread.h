@@ -11,6 +11,17 @@
 /*定义一个通用的函数类型
 方便后期广泛使用函数指针
 */
+
+
+//宏函数，通过结构体成员地址反推结构体地址
+#define offset(struct_type, member)     \
+(uint32_t)(&((struct_type*)0)->member)      //这边仅仅是读操作,没有写所以不涉及非法访问
+
+
+#define elem2pcb(struct_type, member, offset)      \
+(struct_type*)((uint32_t)member - offset)
+
+
 typedef void thread_func(void* arg);
 /*task_status
 线程状态（目前仅有运行态和就绪态）
