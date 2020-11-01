@@ -1,5 +1,4 @@
 #include "./sync.h"
-extern struct list ready_list;
 
 /* semaphore初始化   sem_value:信号量的值（1代表互斥信号量）*/
 void sem_init(struct semaphore* sem, uint8_t sem_value)
@@ -32,10 +31,9 @@ void sem_down(struct semaphore* sem)
 
         //判断wait_list中是否已有该线程的elem
         ASSERT(!elem_search(&sem->wait_list, 
-                            &current_thread->all_list_elem));
+                            &current_thread->ready_list_elem));
 
-        //todo:修改ready_list_elem名称,因为它不仅仅存放于ready_list中
-        list_append(&sem->wait_list, &current_thread->all_list_elem);
+        list_append(&sem->wait_list, &current_thread->ready_list_elem);
         thread_block(TASK_BLOCK);
     }
     sem->value --;
@@ -63,11 +61,10 @@ void sem_up(struct semaphore* sem)
     rie_intr_set(old_status);
 }
 
-//note:注意,这才是线程真正需要调用的函数
+// note:注意,这才是线程真正需要调用的函数
 void lock_acquire(struct lock* plock)
 {
     struct thread_pcb* cur_thread = get_running_thread();
-    //todo:作者没有加锁,但我感觉需要加
     if (plock->owner != cur_thread) {
         sem_down(&plock->sem);
         ASSERT(plock->repeat_num == 0);
@@ -81,11 +78,6 @@ void lock_acquire(struct lock* plock)
 void lock_release(struct lock* plock)
 {
     //确保只有锁的拥有者才能释放锁
-    // struct thread_pcb* cur_thread = get_running_thread();
-    // rie_puti((uint32_t)(plock->owner));
-    // rie_putc(' ');
-    // rie_puti((uint32_t)cur_thread);
-    // rie_putc(' ');
     ASSERT(plock->owner == get_running_thread());
     if (plock->repeat_num > 1) {
         plock->repeat_num -- ;
@@ -96,5 +88,4 @@ void lock_release(struct lock* plock)
     plock->owner = NULL;
     plock->repeat_num = 0;
     sem_up(&plock->sem);
-
 }

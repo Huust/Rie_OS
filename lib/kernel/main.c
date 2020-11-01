@@ -10,14 +10,11 @@ int main(void)
 {
     rie_puts("rieos kernel\r\n");
     all_init();
-    // thread_start("funca", thread_a, "arg2 ", 8);
-    // thread_start("funcb",thread_b, "arg3 ", 21);
+    thread_start("funca", thread_a, "arg2 ", 8);
+    thread_start("funcb",thread_b, "arg3 ", 21);
     rie_intr_enable();
     while(1){
-        // rie_intr_disable();
-        // rie_puts("main1 ");
-        // rie_intr_enable();
-        // console_puts("main1 ");
+        console_puts("main1 ");
     }
     return 0;
 }

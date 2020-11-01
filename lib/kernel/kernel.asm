@@ -21,14 +21,19 @@ section .text
 intr_number_%1:
 %2
 ;向主片和从片发送结束指令
-mov al,0x20
-out 0xa0,al
-out 0x20,al
 push gs
 push ds
 push es
 push fs
 pushad
+mov al,0x20
+out 0xa0,al
+out 0x20,al
+; push gs
+; push ds
+; push es
+; push fs
+; pushad
 push %1
 call [handler_table+(4*%1)]
 add esp,4   ;针对push %1
@@ -58,7 +63,7 @@ VECTOR 0x04,no_error_code
 VECTOR 0x05,no_error_code
 VECTOR 0x06,no_error_code
 VECTOR 0x07,no_error_code
-VECTOR 0x08,exist_error_code    ;error_code
+VECTOR 0x08,no_error_code
 VECTOR 0x09,no_error_code
 VECTOR 0x0a,no_error_code
 VECTOR 0x0b,no_error_code
@@ -67,7 +72,7 @@ VECTOR 0x0d,no_error_code
 VECTOR 0x0e,no_error_code
 VECTOR 0x0f,no_error_code
 VECTOR 0x10,no_error_code
-VECTOR 0x11,exist_error_code    ;error_code
+VECTOR 0x11,no_error_code
 VECTOR 0x12,no_error_code
 VECTOR 0x13,no_error_code
 VECTOR 0x14,no_error_code
@@ -80,7 +85,7 @@ VECTOR 0x1a,no_error_code
 VECTOR 0x1b,no_error_code
 VECTOR 0x1c,no_error_code
 VECTOR 0x1d,no_error_code
-VECTOR 0x1e,no_error_code
+VECTOR 0x1e,exist_error_code
 VECTOR 0x1f,no_error_code
 VECTOR 0x20,no_error_code       ;0x20==32,这个专门留给IRQ0时钟
                                 ;之所以只到0x20是因为目前只用到

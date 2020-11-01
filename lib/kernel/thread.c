@@ -160,8 +160,8 @@ void schedule(void)
 
 void thread_block(enum task_status status)
 {
-    ASSERT(status == TASK_BLOCK || status == TASK_WAITING   \
-            || status == TASK_SUSPEND);
+    ASSERT((status == TASK_BLOCK) || (status == TASK_WAITING)   \
+            || (status == TASK_SUSPEND));
     //进入临界区
     intr_status old_status = intr_get_status();
     rie_intr_disable();
@@ -181,8 +181,8 @@ void thread_unblock(struct thread_pcb* pthread)
     rie_intr_disable();
 
     //断言:状态判断;是否存在于ready_list中
-    ASSERT(pthread->status != TASK_READY
-    && !elem_search(&ready_list, &pthread->ready_list_elem));
+    ASSERT((pthread->status != TASK_READY)    \
+    && (!elem_search(&ready_list, &pthread->ready_list_elem)));
     list_push(&ready_list, &pthread->ready_list_elem);
     pthread->status = TASK_READY;
 

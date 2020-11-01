@@ -27,7 +27,6 @@ static void freq_set(uint8_t counter_port,
 //interrupt gate下中断标识符IF在进入中断处理函数时已经自动置为0
 void intr_timer_handler(uint8_t intr_number)
 {
-    // rie_puts("this is timer handler!!!\r\n"); 
     ASSERT(intr_close == intr_get_status());
     struct thread_pcb* cur_thread = get_running_thread();
     ASSERT(cur_thread->bound_detect == 0x20000803);
