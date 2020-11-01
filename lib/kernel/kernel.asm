@@ -21,6 +21,8 @@ section .text
 intr_number_%1:
 %2
 ;向主片和从片发送结束指令
+;note:奇怪的bug，进入中断后，发EOI的位置必须是如下代码位置
+;否则会出现异常，原因未知
 push gs
 push ds
 push es
@@ -29,11 +31,6 @@ pushad
 mov al,0x20
 out 0xa0,al
 out 0x20,al
-; push gs
-; push ds
-; push es
-; push fs
-; pushad
 push %1
 call [handler_table+(4*%1)]
 add esp,4   ;针对push %1
