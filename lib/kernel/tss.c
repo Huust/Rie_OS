@@ -3,40 +3,49 @@
 static struct tss tss;
 
 
-/* 更新tss的esp0,在进入R0时调用此函数,
-    esp0指向的地址即为线程PCB的intr_stack(中断栈) */
+/* 更新tss的esp0,从R3向R0调度时调用此函数,
+    esp0指向的地址即为R0线程PCB的intr_stack(中断栈) */
 void update_tss_esp0(struct thread_pcb* pthread)
 {
     tss.esp0 = (uint32_t*)((uint32_t)pthread + PAGE_SIZE);
 }
 
 
+/* 构建gdt的描述符 
+@param:
+    desc_addr:段基址
+    limit:段界限
+    attr_low:属性位低四位
+    attr_high:属性位高四位
 
+@return:返回构建好的gdt结构体；可以直接赋值到相应GDT表位置
+*/
 static struct gdt_desc make_gdt_desc(uint32_t* desc_addr, 
                                     uint32_t limit, 
                                     uint8_t attr_low, 
-                                    uint8_t attr_high) 
+                                    uint8_t attr_high)
 {
     uint32_t desc_base = (uint32_t)desc_addr;
     struct gdt_desc desc;
-    desc.limit_low_word = limit & 0x0000ffff;
-    desc.base_low_word = desc_base & 0x0000ffff;
-    desc.base_mid_byte = ((desc_base & 0x00ff0000) >> 16);
-    desc.attr_low_byte = (uint8_t)(attr_low);
+    desc.limit_low_word = (uint16_t)(limit & 0x0000ffff);
+    desc.base_low_word = (uint16_t)(desc_base & 0x0000ffff);
+    desc.base_mid_byte = (uint8_t)((desc_base & 0x00ff0000) >> 16);
+    desc.attr_low_byte = attr_low;
     desc.limit_high_attr_high = \
-    (((limit & 0x000f0000) >> 16) + (uint8_t)(attr_high));
-    desc.base_high_byte = desc_base >> 24;
+    (uint8_t)((limit & 0x000f0000) >> 16) + attr_high;
+    desc.base_high_byte = (uint8_t)(desc_base >> 24);
     return desc;
 }
 
 
-void tss_init() 
+void tss_init()
 {
-    memset(&tss, 0, sizeof(tss));
+    rie_memset(&tss, 0, sizeof(tss));
     tss.ss0 = SELECTOR_K_STACK;
     tss.io_base = sizeof(tss);  //io位图设为tss大小代表没有io位图
 
     /* 在 gdt 中添加 dpl 为 0 的 TSS 描述符 */
+    /* tss段描述符的段基址就是tss结构体的地址 */
     *((struct gdt_desc*)0xc0000920) = make_gdt_desc((uint32_t*)&tss, 
                                                     tss_size - 1, 
                                                     TSS_ATTR_LOW,
@@ -59,5 +68,5 @@ void tss_init()
     
     asm volatile ("lgdt %0" : : "m" (gdt_operand));
     asm volatile ("ltr %w0" : : "r" (SELECTOR_TSS));
-    put_str("tss_init and ltr done\n");
+    rie_puts("tss_init and ltr done\n");
 }

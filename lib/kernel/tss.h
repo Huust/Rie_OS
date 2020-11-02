@@ -62,5 +62,5 @@ struct tss {
     uint32_t io_base;
 };
 
-//void update_tss_esp0(struct thread_pcb* pthread);
+void update_tss_esp0(struct thread_pcb* pthread);
 #endif

@@ -33,6 +33,7 @@ out 0xa0,al
 out 0x20,al
 push %1
 call [handler_table+(4*%1)]
+intr_exit:
 add esp,4   ;针对push %1
 popad
 pop fs

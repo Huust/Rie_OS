@@ -52,10 +52,10 @@ struct intr_stack{
     uint32_t edx;
     uint32_t ecx;
     uint32_t eax;
-    uint32_t gs;
     uint32_t fs;
     uint32_t es;
     uint32_t ds;
+    uint32_t gs;
     uint32_t err_code;
     void (*eip) (void);     //参数为空，返回值为空的函数指针
     uint32_t cs;

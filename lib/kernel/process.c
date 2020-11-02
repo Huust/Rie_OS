@@ -1,16 +1,45 @@
 #include "./process.h"
 
-
-void process_init(void)
+/* 进程执行前的初始化工作 
+    该函数被thread.c中的kernel_thread()调用
+@param:
+    proc_func进程的函数体
+*/
+void process_exec(void* proc_func)
 {
     struct thread_pcb* cur_thread = get_running_thread();
     
-    //pcb的栈指针从线程栈切换到进程栈
+    /*pcb的栈指针从线程栈切换到进程栈，因为该函数执行前是对
+        线程的初始化，其中已经初始化栈指针指向thread_stack栈底,
+        所以执行下面代码后stack_ptr将指向intr_stack栈底
+    */
     cur_thread->stack_ptr += sizeof(struct thread_stack);
 
-    struct intr_stack*  proc_stack= (struct intr_stack*)(cur_thread->stack_ptr);
+    struct intr_stack*  proc_stack = (struct intr_stack*)(cur_thread->stack_ptr);
     //proc_stack是intr_stack的栈底,接下来对这个栈进行初始化
-    //todo:因为还不清楚这个栈的内容何时被使用,因此先不填充
+    proc_stack->edi = proc_stack->esi = proc_stack->eax = proc_stack->ebx \
+     = proc_stack->ecx = proc_stack->edx = 0;
+
+
+    proc_stack->gs = 0;
+
+    proc_stack->ds = proc_stack->es = proc_stack->fs = SELECTOR_U_DATA;
+
+    proc_stack->ss = SELECTOR_U_STACK;
+
+    proc_stack->cs = SELECTOR_U_CODE;
+    proc_stack->eip = proc_func;
+
+    proc_stack->esp_dummy = proc_stack->ebp = 0;
+    /*todo*/
+    proc_stack->esp = ;
+
+    proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_MBS | EFLAGS_IF_1);;
+
+    /* 使用内联汇编，第一步：将esp设置为proc_stack地址
+    第二步：调用kernel.asm中的intr_exit函数*/
+    asm volatile ("movl %0, %%esp; jmp intr_exit" \
+    : : "g" (proc_stack) : "memory");
 
 }
 
@@ -83,20 +112,21 @@ void create_process_bitmap(struct thread_pcb* pthread)
 
 
 /* 对struct thread_pcb 结构体成员变量赋值，完成线程pcb内容 */
-void process_start(void* func, void* arg, \
+/* */
+void process_start(void* proc_func, void* arg, \
                     const char* name, uint8_t priority)
 {
-    struct thread_pcb* process = get_kernel_page(1);
+    struct thread_pcb* proc = get_kernel_page(1);
 
-    pcb_enroll(process, name, priority);
-    process->pt_vaddr = (uint32_t*)create_page_dir();
-    thread_create(process, func, arg);
-    create_process_bitmap(process);
+    pcb_enroll(proc, name, priority);
+    proc->pt_vaddr = (uint32_t*)create_page_dir();
+    thread_create(proc, process_exec, proc_func);
+    create_proc_bitmap(proc);
 
-    ASSERT(!elem_search(&all_list, &process->all_list_elem));
-    list_append(&all_list, &process->all_list_elem);
+    ASSERT(!elem_search(&all_list, &proc->all_list_elem));
+    list_append(&all_list, &proc->all_list_elem);
 
-    ASSERT(!elem_search(&ready_list, &process->ready_list_elem));
-    list_append(&ready_list, &process->ready_list_elem);
+    ASSERT(!elem_search(&ready_list, &proc->ready_list_elem));
+    list_append(&ready_list, &proc->ready_list_elem);
 }
 
