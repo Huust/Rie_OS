@@ -1,11 +1,11 @@
 # Rie_OS
 Just for fun,a unix-like toy operating system.
 
-## update date:2020-04-02(first commit)
+## update date:2020-04-02
 第一次提交，实模式过渡到保护模式的代码完成；<br>
 将环境从windows迁移到了linux。<br>
 之后会更新loader，添加分页机制，开启虚拟内存。<br>
-## update date:2020-04-08(second commit)
+## update date:2020-04-08
 增加了页表，开启了虚拟内存 <br>
 将gdt搬运到了高１GB地址，放入内核空间<br>
 ## update date:2020-04-11
