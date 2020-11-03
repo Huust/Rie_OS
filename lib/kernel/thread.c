@@ -2,7 +2,7 @@
 
 //调用switch_to.asm中的switch_to()函数
 extern void switch_to(struct thread_pcb*, struct thread_pcb*);
-
+extern void process_activate(struct thread_pcb* pthread);
 struct thread_pcb* main_thread;
 struct list all_list;
 struct list ready_list;
@@ -152,7 +152,7 @@ void schedule(void)
 
     next_thread->status = TASK_RUNNING;
 
-    //pt_activate(next_thread);
+    process_activate(next_thread);
 
     switch_to(cur_thread, next_thread);
 }

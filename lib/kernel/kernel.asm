@@ -4,6 +4,7 @@
 ;
 %define no_error_code push 0
 %define exist_error_code nop
+global intr_exit
 extern rie_puts
 extern handler_table
 extern intr_handler
@@ -33,16 +34,8 @@ out 0xa0,al
 out 0x20,al
 push %1
 call [handler_table+(4*%1)]
-intr_exit:
-add esp,4   ;针对push %1
-popad
-pop fs
-pop es
-pop ds
-pop gs
-;弹出错误码,因为iret弹栈时忽视error_code存在
-add esp,4   ;针对push %2
-iretd
+jmp intr_exit
+
 
 section .data
 dd intr_number_%1   ;这里保留空间存放地址
@@ -103,3 +96,14 @@ VECTOR 0x2c,no_error_code
 VECTOR 0x2d,no_error_code
 VECTOR 0x2e,no_error_code
 VECTOR 0x2f,no_error_code
+
+intr_exit:
+add esp,4   ;针对push %1
+popad
+pop fs
+pop es
+pop ds
+pop gs
+;弹出错误码,因为iret弹栈时忽视error_code存在
+add esp,4   ;针对push %2
+iretd

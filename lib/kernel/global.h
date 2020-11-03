@@ -1,6 +1,8 @@
 #ifndef _GLOBAL_H_
 #define _GLOBAL_H_
 #include "stdint.h"
+
+
 #define RPL0 0
 #define RPL1 1
 #define RPL2 2
@@ -43,7 +45,7 @@ s 为 1 时表示存储段,为 0 时表示系统段
 #define DESC_TYPE_CODE 8
 #define DESC_TYPE_DATA 2
 // x=0,e=0,w=1,a=0 数据段是不可执行的、向上扩展的、可写的,已访问位 a 清 0
-#define DESC_TYPE_TSS
+#define DESC_TYPE_TSS 9
 
 // B 位为 0,不忙
 

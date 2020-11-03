@@ -145,7 +145,7 @@ void intr_handler_register(uint8_t irq_num,
 //中断相关初始化
 void idt_init(void)
 {
-    idt_desc_init(SELECTOR_CODE,IDT_DESC_PROPERTY_DPL0);
+    idt_desc_init(SELECTOR_K_CODE,IDT_DESC_PROPERTY_DPL0);
     exception_init();
     pic_init();
     //描述符加载到lidt中

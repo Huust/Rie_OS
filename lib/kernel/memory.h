@@ -30,7 +30,8 @@ struct physical_pool{
     uint32_t pool_size;
 };
 
-
+#include "./sync.h"
+#include "./process.h"
 #include "./print.h"
 #include "../stdint.h"
 #include "../string.h"
@@ -61,5 +62,6 @@ enum mem_apply{
 void mem_struct_init(uint32_t all_mem,uint32_t page_num);
 void* get_kernel_page(uint32_t page_num);
 uint32_t addr_v2p(uint32_t vaddr);
+uint32_t* get_a_concrete_page(enum mem_apply applicant, uint32_t vaddr);
 
 #endif

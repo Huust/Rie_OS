@@ -47,7 +47,7 @@ void tss_init()
     /* 在 gdt 中添加 dpl 为 0 的 TSS 描述符 */
     /* tss段描述符的段基址就是tss结构体的地址 */
     *((struct gdt_desc*)0xc0000920) = make_gdt_desc((uint32_t*)&tss, 
-                                                    tss_size - 1, 
+                                                    sizeof(tss) - 1, 
                                                     TSS_ATTR_LOW,
                                                     TSS_ATTR_HIGH);
 

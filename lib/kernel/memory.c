@@ -14,6 +14,8 @@ struct physical_pool user_pool;
 
 struct virtual_pool kernel_heap;
 
+static struct lock mem_lock;
+
 /*physical_pool_init
 @function:
     为kernel user的physical_pool结构体做初始化
@@ -108,6 +110,7 @@ static void kernel_virtual_pool_init(void)
     kernel_heap.pool_start = KERNEL_HEAP_START;   
 }
 
+
 /*mem_struct_init
 @function:
     内存各种结构体初始化
@@ -125,6 +128,7 @@ void mem_struct_init(uint32_t all_mem,uint32_t page_num)
     rie_puts("mem_struct_init start\r\n");
     physical_pool_init(all_mem, page_num);
     kernel_virtual_pool_init();
+    lock_init(&mem_lock);    
     rie_puts("mem_struct_init done\r\n");
 }
 
@@ -144,7 +148,8 @@ void mem_struct_init(uint32_t all_mem,uint32_t page_num)
 */
 static uint32_t vmalloc(enum mem_apply applicant, uint32_t page_num)
 {
-    int32_t bitmap_idx = 0;
+    int32_t bitmap_idx = 0; //bitmap_idx:找到合适的连续内存的第一个索引位
+                            //不是指需要的位数
 
     //首先内核的虚拟内存池bitmap查看是否存在连续也可用
     if(applicant == APP_KERNEL){
@@ -170,6 +175,40 @@ static uint32_t vmalloc(enum mem_apply applicant, uint32_t page_num)
 
     //返回值是分配到的连续页的起始地址
     return (KERNEL_HEAP_START + bitmap_idx * PAGE_SIZE);
+}
+
+
+/* 要求在内核或者用户虚拟内存池中分配一页，该页起始虚拟地址为传入的参数addr */
+uint32_t* get_a_concrete_page(enum mem_apply applicant, uint32_t vaddr)
+{
+    int32_t bitmap_idx = -1;
+    if ((vaddr << 20) == 0) {
+        if (applicant == APP_KERNEL) {
+            if ((vaddr - KERNEL_HEAP_START) < 0) {return NULL;}
+            else {
+                uint32_t addr_delta = vaddr - KERNEL_HEAP_START;
+                bitmap_idx = bitmap_scan(kernel_heap.pool_bitmap, 1);
+                if (bitmap_idx == -1) {return NULL;}
+                else {bitmap_setval(kernel_heap.pool_bitmap, bitmap_idx, 1);}
+            }
+        } else if (applicant == APP_USER) {
+            lock_acquire(&mem_lock);
+            if ((vaddr - PROCESS_VADDR_START) < 0) {return NULL;}
+            else {
+                uint32_t addr_delta = vaddr - PROCESS_VADDR_START;
+                struct thread_pcb* cur = get_running_thread();
+                bitmap_idx = bitmap_scan(cur->user_heap.pool_bitmap, 1);
+                if (bitmap_idx == -1) {return NULL;}
+                else {bitmap_setval(cur->user_heap.pool_bitmap, bitmap_idx, 1);}
+            }
+            lock_release(&mem_lock);
+        }
+    } else {
+        return NULL;
+    }
+
+
+    return (uint32_t*)vaddr;
 }
 
 
