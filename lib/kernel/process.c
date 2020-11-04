@@ -10,7 +10,7 @@ extern void update_tss_esp0(struct thread_pcb* pthread);
 @param:
     proc_func进程的函数体
 */
-void process_exec(void* proc_func)
+static void process_exec(void* proc_func)
 {
     struct thread_pcb* cur_thread = get_running_thread();
     
@@ -33,11 +33,10 @@ void process_exec(void* proc_func)
     proc_stack->ss = SELECTOR_U_STACK;
 
     proc_stack->cs = SELECTOR_U_CODE;
-    proc_stack->eip = proc_func;
+    proc_stack->eip = proc_func;    /* 要求proc_func返回值和参数必须都为void */
 
     proc_stack->esp_dummy = proc_stack->ebp = 0;
     /*todo*/
-
     uint32_t proc_esp = (uint32_t)get_a_concrete_page(APP_USER, USER_STACK3_VADDR) + PAGE_SIZE;
     ASSERT(proc_esp != PAGE_SIZE);
     proc_stack->esp = (void*)proc_esp;
@@ -58,6 +57,7 @@ void pt_activate(struct thread_pcb* pthread)
         pt_paddr = addr_v2p((uint32_t)(pthread->pt_vaddr));
     }
 
+    
     //内联汇编将新的页表物理地址载入CR3
     asm volatile ("movl %0, %%cr3" : : "r" (pt_paddr) : "memory");
 }
@@ -100,6 +100,7 @@ uint32_t create_page_dir()
     
     return pd_vaddr;
 }
+
 
 /* 创建进程的内存位图 */
 void create_process_bitmap(struct thread_pcb* pthread)
@@ -144,10 +145,14 @@ void process_start(const char* name, \
     thread_create(proc, process_exec, proc_func);
     create_process_bitmap(proc);
 
+    intr_status old_status = intr_get_status();
+
     ASSERT(!elem_search(&all_list, &proc->all_list_elem));
     list_append(&all_list, &proc->all_list_elem);
 
     ASSERT(!elem_search(&ready_list, &proc->ready_list_elem));
     list_append(&ready_list, &proc->ready_list_elem);
+
+    rie_intr_set(old_status);
 }
 

@@ -13,7 +13,7 @@ mov eax, [esp+20]   ;eax获得第一个参数内容(cur_thread指针)
 mov [eax], esp      ;当前esp值存到cur_thread指向的内存(即:thread_pcb结构体
                     ;的第一个元素stack_ptr)
 
-mov eax, [esp+24]   ;获取next_thread指向的内容
+mov eax, [esp+24]   ;获取next_thread指针的值
 mov esp, [eax]      ;同理,next_thread首地址内容为栈顶指针
 
 pop esi

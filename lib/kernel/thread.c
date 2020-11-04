@@ -151,9 +151,7 @@ void schedule(void)
                             offset(struct thread_pcb, ready_list_elem));
 
     next_thread->status = TASK_RUNNING;
-
     process_activate(next_thread);
-
     switch_to(cur_thread, next_thread);
 }
 

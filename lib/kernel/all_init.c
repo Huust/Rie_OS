@@ -3,6 +3,7 @@
 void all_init(void)
 {
     idt_init();
+    tss_init();
     console_init();     //对应的锁：console_lock
     //keyboard_init();
     timer_init();

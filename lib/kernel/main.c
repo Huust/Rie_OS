@@ -39,7 +39,7 @@ void thread_b(void* arg)
     }
 }
 
-void proc_c()
+void proc_c(void)
 {
     while(1){
         test_c++ ;

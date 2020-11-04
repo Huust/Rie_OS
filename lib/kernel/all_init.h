@@ -8,6 +8,7 @@
 #include "./timer.h"
 #include "./keyboard.h"
 #include "./console.h"
+#include "./tss.h"
 
 void all_init(void);
 

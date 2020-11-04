@@ -38,6 +38,7 @@ static struct gdt_desc make_gdt_desc(uint32_t* desc_addr,
 }
 
 
+/* 初始化tss描述符，用于用户进程的DPL为3的目标段描述符*/
 void tss_init()
 {
     rie_memset(&tss, 0, sizeof(tss));
