@@ -45,9 +45,7 @@ s 为 1 时表示存储段,为 0 时表示系统段
 #define DESC_TYPE_CODE 8
 #define DESC_TYPE_DATA 2
 // x=0,e=0,w=1,a=0 数据段是不可执行的、向上扩展的、可写的,已访问位 a 清 0
-#define DESC_TYPE_TSS 9
-
-// B 位为 0,不忙
+#define DESC_TYPE_TSS 9 // B 位为 0,不忙
 
 //特权级为0的代码段数据段 选择子(K->KERNEL)
 #define SELECTOR_K_CODE ((1 << 3) + (TI_GDT << 2) + RPL0)

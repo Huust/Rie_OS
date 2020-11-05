@@ -41,14 +41,15 @@ static struct gdt_desc make_gdt_desc(uint32_t* desc_addr,
 /* 初始化tss描述符，用于用户进程的DPL为3的目标段描述符*/
 void tss_init()
 {
-    rie_memset(&tss, 0, sizeof(tss));
+    uint32_t tss_size = sizeof(tss);
+    rie_memset(&tss, 0, tss_size);
     tss.ss0 = SELECTOR_K_STACK;
-    tss.io_base = sizeof(tss);  //io位图设为tss大小代表没有io位图
+    tss.io_base = tss_size;  //io位图设为tss大小代表没有io位图
 
     /* 在 gdt 中添加 dpl 为 0 的 TSS 描述符 */
     /* tss段描述符的段基址就是tss结构体的地址 */
     *((struct gdt_desc*)0xc0000920) = make_gdt_desc((uint32_t*)&tss, 
-                                                    sizeof(tss) - 1, 
+                                                    tss_size - 1, 
                                                     TSS_ATTR_LOW,
                                                     TSS_ATTR_HIGH);
 
@@ -69,5 +70,5 @@ void tss_init()
     
     asm volatile ("lgdt %0" : : "m" (gdt_operand));
     asm volatile ("ltr %w0" : : "r" (SELECTOR_TSS));
-    rie_puts("tss_init and ltr done\n");
+    rie_puts("tss_init and ltr done\r\n");
 }

@@ -61,5 +61,5 @@ struct tss {
 
     uint32_t io_base;
 };
-void tss_init();
+void tss_init(void);
 #endif

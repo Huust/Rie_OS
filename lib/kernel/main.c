@@ -13,9 +13,9 @@ int main(void)
 {
     rie_puts("rieos kernel\r\n");
     all_init();
-    thread_start("funca", thread_a, "arg2 ", 8);
-    thread_start("funcb",thread_b, "arg3 ", 21);
-    process_start("funcc",proc_c, 15);
+    // thread_start("funca", thread_a, "arg2 ", 8);
+    // thread_start("funcb",thread_b, "arg3 ", 21);
+    process_start("funcc",proc_c, 25);
     rie_intr_enable();
     while(1){
         console_puts("main1 ");

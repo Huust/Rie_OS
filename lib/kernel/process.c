@@ -10,8 +10,9 @@ extern void update_tss_esp0(struct thread_pcb* pthread);
 @param:
     proc_func进程的函数体
 */
-static void process_exec(void* proc_func)
+void process_exec(void* proc_func)
 {
+    // while(1);
     struct thread_pcb* cur_thread = get_running_thread();
     
     /*pcb的栈指针从线程栈切换到进程栈，因为该函数执行前是对
@@ -74,7 +75,6 @@ void process_activate(struct thread_pcb* pthread)
     if (pthread->pt_vaddr != NULL) {
         update_tss_esp0(pthread);
     }
-
 }
 
 /* 为用户进程创建页目录表,并且写入内核高1GB映射的内容
@@ -82,23 +82,40 @@ void process_activate(struct thread_pcb* pthread)
     @return:
         pd_vaddr页目录表的虚拟地址
 */
-uint32_t create_page_dir()
-{
-    uint32_t pd_vaddr = (uint32_t)get_kernel_page(1);
+// uint32_t create_page_dir()
+// {
+//     uint32_t pd_vaddr = (uint32_t)get_kernel_page(1);
 
-    /*因为执行这行代码所处的环境依然是内核态，所以是将
-      内核页目录表中记载高1GB的映射内容（内核占用）copy到用户进程的页目录表
-      依然是通过欺骗CPU达到访问pde的效果
-    */
-    rie_memcpy((void*)(0xfffff000 + 0x300*4), (void*)(pd_vaddr + 0x300*4), \
-    1024);
+//     /*因为执行这行代码所处的环境依然是内核态，所以是将
+//       内核页目录表中记载高1GB的映射内容（内核占用）copy到用户进程的页目录表
+//       依然是通过欺骗CPU达到访问pde的效果
+//     */
+//     rie_memcpy((void*)(0xfffff000 + 0x300*4), (void*)(pd_vaddr + 0x300*4), \
+//     1024);
 
-    uint32_t pd_paddr = addr_v2p((uint32_t)pd_vaddr);
+//     uint32_t pd_paddr = addr_v2p((uint32_t)pd_vaddr);
 
-    //页目录表的最后4B依然存放其首地址
-    *((uint32_t*)(pd_vaddr + 1023*4)) = pd_paddr | PG_US_U | PG_RW_W | PG_P_1;
+//     //页目录表的最后4B依然存放其首地址
+//     *((uint32_t*)(pd_vaddr + 1023*4)) = pd_paddr | PG_US_U | PG_RW_W | PG_P_1;
     
-    return pd_vaddr;
+//     return pd_vaddr;
+// }
+
+uint32_t create_page_dir(void) {
+    uint32_t* page_dir_vaddr = get_kernel_page(1);
+    if (page_dir_vaddr == NULL) {
+        PANIC("create_page_dir: get_kernel_pages failed!");
+        return 0;
+    }
+
+    // 将内核的页表复制到进程页目录项中，实现内核的共享
+    rie_memcpy((uint32_t*) (0xfffff000 + 0x300 * 4), (uint32_t*) ((uint32_t) page_dir_vaddr + 0x300 * 4), 1024);
+
+    // 设置最后一项页表的地址为页目录地址
+    uint32_t new_page_dir_phy_addr = addr_v2p((uint32_t) page_dir_vaddr);
+    page_dir_vaddr[1023] = (new_page_dir_phy_addr | PG_US_U | PG_RW_W | PG_P_1);
+    
+    return (uint32_t)page_dir_vaddr;
 }
 
 
@@ -139,13 +156,14 @@ void process_start(const char* name, \
     struct thread_pcb* proc = get_kernel_page(1);
 
     pcb_enroll(proc, name, priority);
-    proc->pt_vaddr = (uint32_t*)create_page_dir();
+    create_process_bitmap(proc);
     /* kernel_thread()中调用process_exec()，
         process_exec()中调用proc_func() */
     thread_create(proc, process_exec, proc_func);
-    create_process_bitmap(proc);
+    proc->pt_vaddr = (uint32_t*)create_page_dir();
 
     intr_status old_status = intr_get_status();
+    rie_intr_disable();
 
     ASSERT(!elem_search(&all_list, &proc->all_list_elem));
     list_append(&all_list, &proc->all_list_elem);
@@ -155,4 +173,3 @@ void process_start(const char* name, \
 
     rie_intr_set(old_status);
 }
-

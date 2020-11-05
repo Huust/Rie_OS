@@ -3,6 +3,7 @@
 //调用switch_to.asm中的switch_to()函数
 extern void switch_to(struct thread_pcb*, struct thread_pcb*);
 extern void process_activate(struct thread_pcb* pthread);
+extern void process_exec(void* proc_func);
 struct thread_pcb* main_thread;
 struct list all_list;
 struct list ready_list;
@@ -20,7 +21,9 @@ void kernel_thread(thread_func* function,
         因为执行流跑到这里了所以此时中断是关闭的
         所以需要打开中断，否则即将运行的线程就不能被时钟中断调度下来了 
     */
-    rie_intr_enable();
+    // if(function == process_exec) {while(1);}
+    rie_intr_enable();      /* fixme为什么这个开中断会出错 */
+    // if(function == process_exec) {while(1);}
     function(arg);
 }
 
@@ -151,6 +154,9 @@ void schedule(void)
                             offset(struct thread_pcb, ready_list_elem));
 
     next_thread->status = TASK_RUNNING;
+    rie_puti((uint32_t)next_thread);
+    rie_puts("\r\n");
+    rie_puts("one more schedule \r\n");
     process_activate(next_thread);
     switch_to(cur_thread, next_thread);
 }
@@ -166,7 +172,6 @@ void thread_block(enum task_status status)
 
     struct thread_pcb* current_thread = get_running_thread();
     current_thread->status = status;
-
     schedule();
     //退出临界区
     rie_intr_set(old_status);
