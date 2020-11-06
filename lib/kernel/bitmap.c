@@ -1,5 +1,4 @@
 #include "bitmap.h"
-
 /*  bitmap.c
 设计思路:四个函数构成位图操作的基本功能
 1.位图结构体初始化
@@ -13,9 +12,9 @@
 @function:bitmap初始化;
           在创建好一个bitmap结构体后调用该函数初始化
 */
-void bitmap_init(bitmap bitmap_demo)
+void bitmap_init(bitmap* bitmap_demo)
 {
-    rie_memset(bitmap_demo.bitmap_set,0,bitmap_demo.bitmap_len);
+    rie_memset(bitmap_demo->bitmap_set,0,bitmap_demo->bitmap_len);
 }
 
 
@@ -28,12 +27,12 @@ void bitmap_init(bitmap bitmap_demo)
     返回1代表该位为1,即被占用
     返回0:未被占用
 */
-uint8_t bitmap_test(bitmap bitmap_demo,uint32_t bitmap_index)
+uint8_t bitmap_test(bitmap* bitmap_demo,uint32_t bitmap_index)
 {
     uint32_t byte_index = bitmap_index/8;
     uint32_t bit_index = bitmap_index%8;    //bit_index:剩下不能凑成一个byte的bit数
 
-    if(bitmap_demo.bitmap_set[byte_index]&(BITMAP_MASK<<bit_index))
+    if(bitmap_demo->bitmap_set[byte_index]&(BITMAP_MASK<<bit_index))
     return 1;
 
     return 0;
@@ -60,22 +59,22 @@ uint8_t bitmap_test(bitmap bitmap_demo,uint32_t bitmap_index)
     -1代表没有找到
     !=-1则代表返回的是bitmap中的索引(位为单位)
 */
-int32_t bitmap_scan(bitmap bitmap_demo,uint32_t cnt)
+int32_t bitmap_scan(bitmap* bitmap_demo,uint32_t cnt)
 {
     uint32_t pos = 0;
     //fixme:这里pos会出现越界情况
     //某一个元素==0xff代表全为1,都被占用
-    while((bitmap_demo.bitmap_set[pos]==0xff)&&(pos<bitmap_demo.bitmap_len)){
+    while((bitmap_demo->bitmap_set[pos]==0xff)&&(pos<bitmap_demo->bitmap_len)){
         pos++;            
     }
-    if(pos==bitmap_demo.bitmap_len) {return -1;}    //跳出while原因1:达到length时仍未找到
+    if(pos==bitmap_demo->bitmap_len) {return -1;}    //跳出while原因1:达到length时仍未找到
 
     uint32_t first_byte_idx = pos;
     uint8_t first_bit_idx = 0;
     uint32_t bitmap_index = 0;
 
     //第一次元素!=0xff时,代表有可用位;这时去寻找这个byte中第一次出现0的bit
-    while(bitmap_demo.bitmap_set[first_byte_idx]&(BITMAP_MASK<<first_bit_idx)){
+    while(bitmap_demo->bitmap_set[first_byte_idx]&(BITMAP_MASK<<first_bit_idx)){
         first_bit_idx ++;
     }
     bitmap_index = first_byte_idx*8+first_bit_idx;
@@ -84,7 +83,7 @@ int32_t bitmap_scan(bitmap bitmap_demo,uint32_t cnt)
     uint32_t count = 1;     //count:实时记录已经连续的空闲位(至少已有一个空闲bit)
     while(count<cnt){
         //判断剩下的bit数是否超过cnt
-        if((bitmap_index+cnt)>(bitmap_demo.bitmap_len-1)) {return -1;}
+        if((bitmap_index+cnt)>(bitmap_demo->bitmap_len-1)) {return -1;}
 
         if(bitmap_test(bitmap_demo,bitmap_index+count)){
             count = 1;
@@ -104,7 +103,7 @@ int32_t bitmap_scan(bitmap bitmap_demo,uint32_t cnt)
 @param:
     value:设置bitmap_index的值为value(0/1)
 */
-void bitmap_setval(bitmap bitmap_demo,uint32_t bitmap_index,uint8_t value)
+void bitmap_setval(bitmap* bitmap_demo,uint32_t bitmap_index,uint8_t value)
 {
     ASSERT(value==1 || value == 0);
 
@@ -112,6 +111,6 @@ void bitmap_setval(bitmap bitmap_demo,uint32_t bitmap_index,uint8_t value)
     uint32_t bit_index = bitmap_index%8;
 
     //value设为0时需要~按位取反后做与运算
-    if(value == 1) {bitmap_demo.bitmap_set[byte_index]|=(BITMAP_MASK<<bit_index);}
-    else if(value == 0) {bitmap_demo.bitmap_set[byte_index]&=~(BITMAP_MASK<<bit_index);}
+    if(value == 1) {bitmap_demo->bitmap_set[byte_index]|=(BITMAP_MASK<<bit_index);}
+    else {bitmap_demo->bitmap_set[byte_index]&=~(BITMAP_MASK<<bit_index);}
 }

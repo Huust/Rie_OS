@@ -3,7 +3,6 @@
 //调用switch_to.asm中的switch_to()函数
 extern void switch_to(struct thread_pcb*, struct thread_pcb*);
 extern void process_activate(struct thread_pcb* pthread);
-extern void process_exec(void* proc_func);
 struct thread_pcb* main_thread;
 struct list all_list;
 struct list ready_list;
@@ -21,9 +20,7 @@ void kernel_thread(thread_func* function,
         因为执行流跑到这里了所以此时中断是关闭的
         所以需要打开中断，否则即将运行的线程就不能被时钟中断调度下来了 
     */
-    // if(function == process_exec) {while(1);}
-    rie_intr_enable();      /* fixme为什么这个开中断会出错 */
-    // if(function == process_exec) {while(1);}
+    rie_intr_enable();
     function(arg);
 }
 
@@ -37,12 +34,12 @@ void pcb_enroll(struct thread_pcb* pthread,
                 uint8_t priority)
 {
     rie_memset(pthread, 0, sizeof(struct thread_pcb));
-    rie_memcpy(name,pthread->name,sizeof(name));
+    rie_memcpy(pthread->name,name,sizeof(name));
     pthread->prior = priority;
     pthread->bound_detect = 0x20000803;
     pthread->tick = 32 - priority;  //prior小代表优先级大
     pthread->all_tick = 0;
-    pthread->pt_vaddr = NULL;
+    pthread->pd_vaddr = NULL;
     pthread->stack_ptr = (uint32_t)pthread + PAGE_SIZE;
     if(pthread == main_thread)
         pthread->status = TASK_RUNNING;
@@ -154,10 +151,9 @@ void schedule(void)
                             offset(struct thread_pcb, ready_list_elem));
 
     next_thread->status = TASK_RUNNING;
-    rie_puti((uint32_t)next_thread);
-    rie_puts("\r\n");
-    rie_puts("one more schedule \r\n");
+
     process_activate(next_thread);
+
     switch_to(cur_thread, next_thread);
 }
 

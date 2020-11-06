@@ -107,7 +107,7 @@ struct thread_pcb{
     uint8_t tick;           //时间片
     uint32_t all_tick;      //该线程运行的总时长
 
-    uint32_t* pt_vaddr;         //页目录表的地址;用户进程被调度前将
+    uint32_t* pd_vaddr;         //页目录表的地址;用户进程被调度前将
                                 //该成员值将被载入CR3实现页表切换
 
     struct virtual_pool user_heap;  //如果是用户进程，则在该pcb中

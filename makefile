@@ -14,7 +14,7 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/interrupt.o\
 $(BUILD_DIR)/debug.o $(BUILD_DIR)/print.o $(BUILD_DIR)/kernel.o\
 $(BUILD_DIR)/string.o $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/memory.o\
 $(BUILD_DIR)/list.o $(BUILD_DIR)/timer.o $(BUILD_DIR)/thread.o \
-$(BUILD_DIR)/switch_to.o $(BUILD_DIR)/sync.o $(BUILD_DIR)/console.o \
+$(BUILD_DIR)/switch_to.o $(BUILD_DIR)/loadcr3.o $(BUILD_DIR)/sync.o $(BUILD_DIR)/console.o \
 $(BUILD_DIR)/all_init.o $(BUILD_DIR)/keyboard.o $(BUILD_DIR)/process.o \
 $(BUILD_DIR)/tss.o
 
@@ -74,6 +74,9 @@ $(BUILD_DIR)/print.o:$(KERNEL_DIR)/print.asm
 	$(ASM) $(ASMFLAG) -o $@ $<
 
 $(BUILD_DIR)/switch_to.o:$(KERNEL_DIR)/switch_to.asm
+	$(ASM) $(ASMFLAG) -o $@ $<
+
+$(BUILD_DIR)/loadcr3.o:$(KERNEL_DIR)/loadcr3.asm
 	$(ASM) $(ASMFLAG) -o $@ $<
 
 # 链接

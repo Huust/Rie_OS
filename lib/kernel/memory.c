@@ -16,6 +16,7 @@ struct virtual_pool kernel_heap;
 
 static struct lock mem_lock;
 
+
 /*physical_pool_init
 @function:
     为kernel user的physical_pool结构体做初始化
@@ -45,8 +46,8 @@ static void physical_pool_init(uint32_t all_mem,uint32_t page_num)
 
 
     //bitmap数组存放的位置
-    kernel_pool.pool_bitmap.bitmap_set = (uint32_t*)BITMAP_BASE_ADDR;
-    user_pool.pool_bitmap.bitmap_set = (uint32_t*)(BITMAP_BASE_ADDR + \
+    kernel_pool.pool_bitmap.bitmap_set = (uint8_t*)BITMAP_BASE_ADDR;
+    user_pool.pool_bitmap.bitmap_set = (uint8_t*)(BITMAP_BASE_ADDR + \
     kernel_pool.pool_bitmap.bitmap_len);    //user bitmap紧跟在kernel bitmap后面
 
 
@@ -59,8 +60,8 @@ static void physical_pool_init(uint32_t all_mem,uint32_t page_num)
     user_pool.pool_size = user_mem_page * PAGE_SIZE;
 
     //bitmap 初始化
-    bitmap_init(kernel_pool.pool_bitmap);
-    bitmap_init(user_pool.pool_bitmap);
+    bitmap_init(&kernel_pool.pool_bitmap);
+    bitmap_init(&user_pool.pool_bitmap);
 
     //
     rie_puts("kernel_pool bitmap_set:");
@@ -95,7 +96,7 @@ static void kernel_virtual_pool_init(void)
     rie_puts("kernel_heap_init start\r\n");
 
     //虚拟内存池管理的bitmap数组存放的位置(跟在物理内存池bitmap的后面)
-    kernel_heap.pool_bitmap.bitmap_set = (uint32_t*)(BITMAP_BASE_ADDR + \
+    kernel_heap.pool_bitmap.bitmap_set = (uint8_t*)(BITMAP_BASE_ADDR + \
     kernel_pool.pool_bitmap.bitmap_len + user_pool.pool_bitmap.bitmap_len);
 
     //bitmap数组长度
@@ -105,7 +106,7 @@ static void kernel_virtual_pool_init(void)
     内核使用了，所以heap更适合这个名字；否则位图就不是简单地
     全部初始化为0了*/
     kernel_heap.pool_bitmap.bitmap_len = kernel_pool.pool_bitmap.bitmap_len;
-    bitmap_init(kernel_heap.pool_bitmap);
+    bitmap_init(&kernel_heap.pool_bitmap);
     //virtual_pool结构体的内存池地址
     kernel_heap.pool_start = KERNEL_HEAP_START;   
 }
@@ -153,14 +154,14 @@ static uint32_t vmalloc(enum mem_apply applicant, uint32_t page_num)
 
     //首先内核的虚拟内存池bitmap查看是否存在连续也可用
     if(applicant == APP_KERNEL){
-        bitmap_idx = bitmap_scan(kernel_heap.pool_bitmap, page_num);
+        bitmap_idx = bitmap_scan(&kernel_heap.pool_bitmap, page_num);
     }else if(applicant == APP_USER){
         struct thread_pcb* cur_thread = get_running_thread();
-        bitmap_idx = bitmap_scan(cur_thread->user_heap.pool_bitmap, page_num);
+        bitmap_idx = bitmap_scan(&cur_thread->user_heap.pool_bitmap, page_num);
 
         if (bitmap_idx != -1) {
             for(int32_t i = bitmap_idx;i < bitmap_idx+page_num;i++)
-            {bitmap_setval(cur_thread->user_heap.pool_bitmap,i,1);}            
+            {bitmap_setval(&cur_thread->user_heap.pool_bitmap,i,1);}            
             return (cur_thread->user_heap.pool_start + bitmap_idx * PAGE_SIZE);
         } else { 
             return 0;
@@ -171,44 +172,10 @@ static uint32_t vmalloc(enum mem_apply applicant, uint32_t page_num)
 
     //找到可用页，bitmap置位
     for(int32_t i = bitmap_idx;i < bitmap_idx+page_num;i++)
-    {bitmap_setval(kernel_heap.pool_bitmap,i,1);}
+    {bitmap_setval(&kernel_heap.pool_bitmap,i,1);}
 
     //返回值是分配到的连续页的起始地址
     return (KERNEL_HEAP_START + bitmap_idx * PAGE_SIZE);
-}
-
-
-/* 要求在内核或者用户虚拟内存池中分配一页，该页起始虚拟地址为传入的参数addr */
-uint32_t* get_a_concrete_page(enum mem_apply applicant, uint32_t vaddr)
-{
-    int32_t bitmap_idx = -1;
-    if ((vaddr << 20) == 0) {
-        if (applicant == APP_KERNEL) {
-            if ((vaddr - KERNEL_HEAP_START) < 0) {return NULL;}
-            else {
-                uint32_t addr_delta = vaddr - KERNEL_HEAP_START;
-                bitmap_idx = bitmap_scan(kernel_heap.pool_bitmap, 1);
-                if (bitmap_idx == -1) {return NULL;}
-                else {bitmap_setval(kernel_heap.pool_bitmap, bitmap_idx, 1);}
-            }
-        } else if (applicant == APP_USER) {
-            lock_acquire(&mem_lock);
-            if ((vaddr - PROCESS_VADDR_START) < 0) {return NULL;}
-            else {
-                uint32_t addr_delta = vaddr - PROCESS_VADDR_START;
-                struct thread_pcb* cur = get_running_thread();
-                bitmap_idx = bitmap_scan(cur->user_heap.pool_bitmap, 1);
-                if (bitmap_idx == -1) {return NULL;}
-                else {bitmap_setval(cur->user_heap.pool_bitmap, bitmap_idx, 1);}
-            }
-            lock_release(&mem_lock);
-        }
-    } else {
-        return NULL;
-    }
-
-
-    return (uint32_t*)vaddr;
 }
 
 
@@ -223,7 +190,7 @@ uint32_t* get_a_concrete_page(enum mem_apply applicant, uint32_t vaddr)
 */
 static uint32_t get_vaddr_pte(uint32_t vaddr)
 {
-    return ((0xffc00000)+((vaddr&0xffc00000)>>10)+4*((vaddr&0x3ff000)>>12));
+    return ((0xffc00000)+((vaddr&0xffc00000)>>10)+4*((vaddr&0x003ff000)>>12));
 }
 
 /*get_vaddr_pde
@@ -251,9 +218,11 @@ static uint32_t get_vaddr_pde(uint32_t vaddr)
 */
 uint32_t addr_v2p(uint32_t vaddr)
 {
-    uint32_t* vaddr_pte = (uint32_t*)get_vaddr_pte(vaddr);
-    return ((*vaddr_pte & 0xfffff000) + (vaddr & 0x00000fff));
+    uint32_t* pte_vaddr = (uint32_t*)get_vaddr_pte(vaddr);
+    return ((*pte_vaddr & 0xfffff000) + (vaddr & 0x00000fff));
 }
+
+
 /*
 @function:
     物理页的分配(每次调用只能分配1页)
@@ -265,10 +234,10 @@ uint32_t addr_v2p(uint32_t vaddr)
 */
 static uint32_t pmalloc(struct physical_pool pool)
 {
-    int32_t bitmap_idx = bitmap_scan(pool.pool_bitmap, 1);
+    int32_t bitmap_idx = bitmap_scan(&pool.pool_bitmap, 1);
     if(bitmap_idx == -1){return 0;}     //return 0是因为正常返回不会为0
     else{
-        bitmap_setval(pool.pool_bitmap,bitmap_idx,1);
+        bitmap_setval(&pool.pool_bitmap,bitmap_idx,1);
         return (pool.pool_start + bitmap_idx*PAGE_SIZE);
     }
 }
@@ -363,6 +332,39 @@ static uint32_t page_malloc(enum mem_apply applicant, uint32_t page_num)
     
     return page_vaddr;
 }
+
+
+void* get_a_page(enum mem_apply applicant, uint32_t vaddr) 
+{
+    struct physical_pool *mem_pool = (applicant == APP_KERNEL) ? &kernel_pool : &user_pool;
+    lock_acquire(&mem_lock);
+    struct thread_pcb* cur = get_running_thread();
+    int32_t bit_idx = -1;
+
+    if ((cur->pd_vaddr != NULL) && (applicant == APP_USER)) {
+        // 用户进程内存，修改进程对应的虚拟内存池位图
+        // 因为虚拟内存池的起始地址对应bitmap_idx索引为0，所以下面的计算方法成立
+        bit_idx = (vaddr - cur->user_heap.pool_start) / PAGE_SIZE;
+        ASSERT(bit_idx > 0);
+        bitmap_setval(&cur->user_heap.pool_bitmap, bit_idx, 1);
+    } else if ((cur->pd_vaddr == NULL) && (applicant == APP_KERNEL)) {
+        // 内核线程
+        bit_idx = (vaddr - kernel_heap.pool_start) / PAGE_SIZE;
+        ASSERT(bit_idx > 0);
+        bitmap_setval(&kernel_heap.pool_bitmap, bit_idx, 1);
+    } else {
+        PANIC("Unknown memory space type.\n");
+    }
+    uint32_t page_phyaddr = pmalloc(*mem_pool);
+    if (page_phyaddr == 0) {
+        return NULL;
+    }
+    mem_map(vaddr, page_phyaddr);
+
+    lock_release(&mem_lock);
+    return (void*) vaddr;
+}
+
 
 
 /*get_kernel_page

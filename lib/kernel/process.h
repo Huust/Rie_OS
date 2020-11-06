@@ -11,5 +11,6 @@
 
 void process_start(const char* name, \
                     void* proc_func, uint8_t priority);
+
 #endif
 

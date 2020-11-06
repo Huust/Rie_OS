@@ -14,7 +14,7 @@ pool_start:虚拟内存池地址
 */
 struct virtual_pool{
     bitmap pool_bitmap;
-    uint32_t pool_start;   //存放起始地址,非指针 
+    uint32_t pool_start;   //存放起始地址,非指针
 };
 
 
@@ -62,6 +62,5 @@ enum mem_apply{
 void mem_struct_init(uint32_t all_mem,uint32_t page_num);
 void* get_kernel_page(uint32_t page_num);
 uint32_t addr_v2p(uint32_t vaddr);
-uint32_t* get_a_concrete_page(enum mem_apply applicant, uint32_t vaddr);
-
+void* get_a_page(enum mem_apply applicant, uint32_t vaddr);
 #endif
