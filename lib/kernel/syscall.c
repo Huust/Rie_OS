@@ -28,7 +28,7 @@ int retval; \
 asm volatile (  \
 "int $0x80" \
 : "=a" (retval) \
-: "a" (NUMBER) "b" (ARG1)   \
+: "a" (NUMBER), "b" (ARG1)   \
 : "memory"  \
 );  \
 retval; \
@@ -39,7 +39,7 @@ int retval; \
 asm volatile (  \
 "int $0x80" \
 : "=a" (retval) \
-: "a" (NUMBER) "b" (ARG1) "c" (ARG2)    \
+: "a" (NUMBER), "b" (ARG1), "c" (ARG2)    \
 : "memory"  \
 );  \
 retval; \
@@ -50,7 +50,7 @@ int retval; \
 asm volatile (  \
 "int $0x80" \
 : "=a" (retval) \
-: "a" (NUMBER) "b" (ARG1) "c" (ARG2) "d" (ARG3) \
+: "a" (NUMBER), "b" (ARG1), "c" (ARG2), "d" (ARG3) \
 : "memory"  \
 );  \
 retval; \
@@ -67,17 +67,23 @@ void syscall_register(enum SYS_NUMBER syscall_num, void* syscall_func)
 
 /*------------------------------------------------------*/
 /* getpid的底层实现：返回当前运行线程/进程的pid值 */
+/* write的底层实现 */
 static uint16_t sys_getpid(void)
 {
     return (get_running_thread()->pid);
 }
 
-
+static uint32_t sys_write(char* str)
+{
+    console_puts(str);
+    return rie_strlen(str);
+}
 /*------------------------------------------------------*/
 /* 初始化 */
 void syscall_init(void)
 {
     syscall_register(SYS_GETPID, sys_getpid);
+    syscall_register(SYS_WRITE, sys_write);
 }
 
 
@@ -85,5 +91,10 @@ void syscall_init(void)
 /* 提供给用户的系统调用接口 */
 uint16_t get_pid(void)
 {
-    return (_syscall0(SYS_GETPID));
+    return _syscall0(SYS_GETPID);
+}
+
+uint32_t write(char* str)
+{
+    return _syscall1(SYS_WRITE, str);
 }
