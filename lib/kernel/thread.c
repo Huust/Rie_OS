@@ -7,6 +7,7 @@ struct thread_pcb* main_thread;
 struct list all_list;
 struct list ready_list;
 
+static struct lock pid_lock;
 
 /*kernel_thread
 @function:
@@ -25,6 +26,15 @@ void kernel_thread(thread_func* function,
 }
 
 
+/* 给新创建的线程提供pid */
+uint16_t allocate_pid(void)
+{
+    static uint16_t next_pid = 0;   //函数第一次被调用时才赋值
+    lock_acquire(&pid_lock);
+    next_pid++;
+    lock_release(&pid_lock);
+    return next_pid;
+}
 /*pcb_enroll
 @function:
     pcb登记:填充线程pcb的内容
@@ -40,6 +50,7 @@ void pcb_enroll(struct thread_pcb* pthread,
     pthread->tick = 32 - priority;  //prior小代表优先级大
     pthread->all_tick = 0;
     pthread->pd_vaddr = NULL;
+    pthread->pid = allocate_pid();
     pthread->stack_ptr = (uint32_t)pthread + PAGE_SIZE;
     if(pthread == main_thread)
         pthread->status = TASK_RUNNING;
@@ -194,5 +205,6 @@ void thread_init(void)
 {
     list_init(&all_list);
     list_init(&ready_list);
+    lock_init(&pid_lock);
     main_thread_register();
 }

@@ -3,7 +3,8 @@
 #include "io.h"
 #include "interrupt.h"
 //descriptor number
-#define desc_number 48
+#define desc_number (0x81)
+#define desc_num_raw 48
 //eflag
 #define EFLAG_IF 0x00000200
 /*
@@ -15,6 +16,8 @@ ICW2-4,OCW1-->0x21(M)/0xa1(S)
 #define PIC_S_EVEN 0xa0
 #define PIC_M_ODD 0x21
 #define PIC_S_ODD 0xa1
+
+extern void syscall_entry(void);
 
 //定义描述符结构体
 typedef struct descriptor
@@ -29,7 +32,7 @@ typedef struct descriptor
 //创建结构体数组存放全部中断描述符
 static idt_desc idt[desc_number] = {0};
 //kernel.asm中的中断处理程序入口地址数组
-extern uint32_t handler_entry_table[desc_number];
+extern uint32_t handler_entry_table[desc_num_raw];
 
 /*-----------------------
 idt描述符初始化func
@@ -39,7 +42,7 @@ idt描述符初始化func
 -----------------------*/
 static void idt_desc_init(uint16_t selector,uint16_t property)
 {
-    for(int i=0;i<desc_number;i++){
+    for(int i=0;i<desc_num_raw;i++){
         idt[i].handler_addr_offset_low16
          = handler_entry_table[i] & 0x0000FFFF;
         idt[i].handler_addr_offset_high16
@@ -48,7 +51,18 @@ static void idt_desc_init(uint16_t selector,uint16_t property)
         idt[i].const_byte = 0;
         idt[i].property = property;
     }
-    rie_puts("idt descriptor init\r\n");
+}
+
+
+static void idt_syscall_init(uint16_t selector,uint16_t property)
+{
+    idt[0x80].handler_addr_offset_low16
+    = (uint32_t)syscall_entry & 0x0000FFFF;
+    idt[0x80].handler_addr_offset_high16
+    = ((uint32_t)syscall_entry & 0xFFFF0000) >> 16;
+    idt[0x80].handler_selector = selector;
+    idt[0x80].const_byte = 0;
+    idt[0x80].property = property;
 }
 
 //中断控制器初始化
@@ -146,6 +160,7 @@ void intr_handler_register(uint8_t irq_num,
 void idt_init(void)
 {
     idt_desc_init(SELECTOR_K_CODE,IDT_DESC_PROPERTY_DPL0);
+    idt_syscall_init(SELECTOR_K_CODE,IDT_DESC_PROPERTY_DPL3);
     exception_init();
     pic_init();
     //描述符加载到lidt中

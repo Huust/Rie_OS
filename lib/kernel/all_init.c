@@ -8,5 +8,6 @@ void all_init(void)
     //keyboard_init();
     timer_init();
     thread_init();
+    syscall_init();
     mem_struct_init(0x2000000,256);
 }

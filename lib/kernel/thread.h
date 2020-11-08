@@ -44,7 +44,7 @@ enum task_status{
     用这次pop操作，为即将执行的用户进程提供新的寄存器环境
 */
 struct intr_stack{
-    uint32_t vec_no;
+    uint32_t vec_no;    //中断向量号
     uint32_t edi;
     uint32_t esi;
     uint32_t ebp;
@@ -116,6 +116,8 @@ struct thread_pcb{
     struct list_element all_list_elem;
 
     struct list_element ready_list_elem;
+
+    uint16_t pid;
 
     uint32_t bound_detect;
 };

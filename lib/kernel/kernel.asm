@@ -5,9 +5,11 @@
 %define no_error_code push 0
 %define exist_error_code nop
 global intr_exit
+global syscall_entry
 extern rie_puts
 extern handler_table
 extern intr_handler
+extern syscall_table
 [bits 32]
 section .data   ;此处data与下部分data在编译时合成一个
                 ;segment;从而使得dd的内容就接在
@@ -107,3 +109,26 @@ pop gs
 ;弹出错误码,因为iret弹栈时忽视error_code存在
 add esp,4   ;针对push %2
 iretd
+
+
+syscall_entry:
+push 0
+
+push gs
+push ds
+push es
+push fs
+pushad
+
+push 0x80
+push edx
+push ecx
+push ebx
+;为什么要压这三个寄存器
+;下一步调用函数，遵循ABI规则，需要压入参数供函数使用
+;即使被调函数不需要那么多参数，这么压也没问题，因为编译后也遵循ABI规则
+call [syscall_table + eax*4]    ;因为加上了偏移量，所以不需要压eax
+add esp, 12
+mov [esp + 32], eax
+jmp intr_exit
+
