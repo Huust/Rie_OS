@@ -175,7 +175,7 @@ sgdt [gdt_ptr]
 mov ebx, [gdt_ptr + 2];获得GDT_BASE
 or dword [ebx + 0x18 + 4], 0xc0000000
 add dword [gdt_ptr + 2], 0xc0000000
-mov esp,0x900 
+mov esp,0x900
 add esp, 0xc0000000
 
 ;set pg in cr0,paging begin

@@ -15,4 +15,5 @@ enum SYS_NUMBER{
 
 void syscall_init(void);
 uint16_t get_pid(void);
+uint32_t write(char* str);
 #endif

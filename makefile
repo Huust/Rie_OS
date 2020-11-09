@@ -16,7 +16,7 @@ $(BUILD_DIR)/string.o $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/memory.o\
 $(BUILD_DIR)/list.o $(BUILD_DIR)/timer.o $(BUILD_DIR)/thread.o \
 $(BUILD_DIR)/switch_to.o $(BUILD_DIR)/loadcr3.o $(BUILD_DIR)/sync.o $(BUILD_DIR)/console.o \
 $(BUILD_DIR)/all_init.o $(BUILD_DIR)/keyboard.o $(BUILD_DIR)/process.o \
-$(BUILD_DIR)/tss.o $(BUILD_DIR)/syscall.o
+$(BUILD_DIR)/tss.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/stdio.o
 
 #gcc编译
 #基本上依赖文件都包含stdint.h，所以不需要额外以来该头文件
@@ -68,6 +68,10 @@ $(BUILD_DIR)/process.o:$(KERNEL_DIR)/process.c $(KERNEL_DIR)/thread.h $(KERNEL_D
 
 $(BUILD_DIR)/syscall.o:$(KERNEL_DIR)/syscall.c $(KERNEL_DIR)/thread.h
 	$(CC) $(CCFLAG) -o $@ $<
+
+$(BUILD_DIR)/stdio.o:$(LIB_DIR)/stdio.c $(KERNEL_DIR)/syscall.h $(KERNEL_DIR)/debug.h $(LIB_DIR)/string.h
+	$(CC) $(CCFLAG) -o $@ $<
+
 #nasm编译
 $(BUILD_DIR)/kernel.o:$(KERNEL_DIR)/kernel.asm
 	$(ASM) $(ASMFLAG) -o $@ $<

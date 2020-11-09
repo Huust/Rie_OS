@@ -3,6 +3,7 @@
 #include "./console.h"
 #include "./process.h"
 #include "./syscall.h"
+#include "../stdio.h"
 
 void thread_a(void* arg);
 void thread_b(void* arg);
@@ -50,7 +51,7 @@ void thread_b(void* arg)
 void proc_a(void)
 {
     while(1){
-        test_a = get_pid() ;
+        test_a = get_pid();
     }
 }
 

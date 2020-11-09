@@ -67,7 +67,7 @@ int8_t rie_strcmp(void* a_, void* b_)
    return (*a < *b) ? (-1) : (*a > *b);
 }
 
-
+/* 不计入末尾的0 */
 uint32_t rie_strlen(const char* str) 
 {
    ASSERT(str != NULL);
