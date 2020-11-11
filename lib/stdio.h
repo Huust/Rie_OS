@@ -8,7 +8,7 @@
 
 typedef char* va_list;
 
-void itoa(int32_t integer, char** const buf, uint8_t base);
-uint32_t mySprintf(char* const buf, const char* format, va_list ap);
-int printf(const char* format, ...);
+static void itoa(uint32_t value, char** buf_ptr_addr, uint8_t base);
+uint32_t vsprintf(char* str, const char* format, va_list ap);
+uint32_t printf(const char* format, ...);
 #endif

@@ -23,41 +23,37 @@ int main(void)
     process_start("proc_b", proc_b, 15);
     rie_intr_enable();
     while(1){
-        console_puts("main1 ");
+        // console_puts("main1 ");
     }
     return 0;
 }
 
 void thread_a(void* arg)
 {
-    char* a = (char*)arg;
-    while(1){
-        console_puts("test_a:");
-        console_puti(test_a);
-        console_puts("  ");
-    }
+        console_puts("I am thread_a, my pid is ");
+        console_puti(get_pid());
+        console_puts("\r\n");
+    while(1);
 }
 
 void thread_b(void* arg)
 {
-    char* b = (char*)arg;
-    while(1){
-        console_puts("test_b:");
-        console_puti(test_b);
-        console_puts("  ");
-    }
+        console_puts("I am thread_b, my pid is ");
+        console_puti(get_pid());
+        console_puts("\r\n");
+    while(1);
 }
 
 void proc_a(void)
 {
-    while(1){
-        test_a = get_pid();
-    }
+    char* name = "proc_a";
+    printf(" I am %s, my pid:%d\r\n", name, get_pid());
+    while(1);
 }
 
 void proc_b(void)
 {
-    while(1){
-        test_b = get_pid() ;
-    }
+    char* name = "proc_b";
+    printf(" I am %s, my pid:%d\r\n", name, get_pid());
+    while(1);
 }

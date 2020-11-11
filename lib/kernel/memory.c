@@ -4,6 +4,12 @@
 #define BITMAP_BASE_ADDR 0xc009a000     //为什么这个值理由同上
 
 
+struct arena{
+    struct mem_block_desc_t* pdesc; //指向相应类型的描述符
+    uint32_t cnt;
+    uint32_t large_mode;    //==1时代表arena开启大内存模式（申请内存>1024），cnt表示页框数；否则表示空闲mem_block数量
+};
+
 /*
 conception:
     优先初始化物理内存池,因为是固定的.
@@ -15,6 +21,23 @@ struct physical_pool user_pool;
 struct virtual_pool kernel_heap;
 
 static struct lock mem_lock;
+
+struct mem_block_desc_t mem_block_desc[desc_type_num];  //给内核使用的内存块描述符
+
+
+/**/
+void mem_block_desc_init(struct mem_block_desc_t* pdesc)
+{
+    uint32_t desc_idx,block_size = 16;
+    for (desc_idx = 0;desc_idx < desc_type_num;desc_idx++) {
+        pdesc[desc_idx].block_size = block_size;
+        pdesc[desc_idx].block_per_arena = (desc_type_num - sizeof(struct arena))/block_size;    
+        list_init(&pdesc[desc_idx].free_list);
+        block_size *= 2;
+    }
+}
+
+
 
 
 /*physical_pool_init
@@ -129,7 +152,8 @@ void mem_struct_init(uint32_t all_mem,uint32_t page_num)
     rie_puts("mem_struct_init start\r\n");
     physical_pool_init(all_mem, page_num);
     kernel_virtual_pool_init();
-    lock_init(&mem_lock);    
+    lock_init(&mem_lock);
+    mem_block_desc_init(mem_block_desc);
     rie_puts("mem_struct_init done\r\n");
 }
 
@@ -391,4 +415,117 @@ void* get_user_page(uint32_t page_num)
     if((page_vaddr == 0)||(page_vaddr == 1)) {return NULL;}
     rie_memset((void*)page_vaddr,0,page_num * PAGE_SIZE);
     return (void*)page_vaddr;
+}
+
+
+static struct mem_block* arena2block(struct arena* a, uint32_t idx) {
+  return (struct mem_block*)((uint32_t)a + sizeof(struct arena) + idx * a->pdesc->block_size);
+}
+
+/* 返回内存块b所在的arena地址 */
+static struct arena* block2arena(struct mem_block* b) {
+   return (struct arena*)((uint32_t)b & 0xfffff000);
+}
+
+
+void* sys_malloc(uint32_t size) 
+{
+   enum mem_apply applicant;
+   struct physical_pool* mem_pool;
+   uint32_t pool_size;
+   struct mem_block_desc_t* pdesc;
+   struct thread_pcb* cur = get_running_thread();
+
+/* 判断用哪个内存池*/
+   if (cur->pd_vaddr == NULL) {     // 若为内核线程
+      applicant = APP_KERNEL; 
+      pool_size = kernel_pool.pool_size;
+      mem_pool = &kernel_pool;
+      pdesc = mem_block_desc;
+   } else {				      // 用户进程pcb中的pgdir会在为其分配页表时创建
+      applicant = APP_USER;
+      pool_size = user_pool.pool_size;
+      mem_pool = &user_pool;
+      pdesc = cur->mem_block_desc;
+   }
+
+   /* 若申请的内存不在内存池容量范围内则直接返回NULL */
+   if (!(size > 0 && size < pool_size)) {
+      return NULL;
+   }
+   struct arena* a;
+   struct mem_block* b;	
+   uint32_t temp;
+   lock_acquire(&mem_lock);
+
+/* 超过最大内存块1024, 就分配页框 */
+   if (size > 1024) {
+      uint32_t page_cnt = (size + sizeof(struct arena))/PAGE_SIZE + 1;
+
+        temp = page_malloc(applicant, page_cnt);
+      if (temp != 0 && temp != 1) {
+          a = (struct arena*)temp;
+	 rie_memset(a, 0, page_cnt * PAGE_SIZE);	 // 将分配的内存清0  
+
+      /* 对于分配的大块页框,将desc置为NULL, cnt置为页框数,large置为true */
+	 a->pdesc = NULL;
+	 a->cnt = page_cnt;
+	 a->large_mode = 1;
+
+	 lock_release(&mem_lock);
+	 return (void*)(a + 1);		 // 跨过arena大小，把剩下的内存返回
+      } else {
+	 lock_release(&mem_lock);
+	 return NULL; 
+      }
+   } else {    // 若申请的内存小于等于1024,可在各种规格的mem_block_desc中去适配
+      uint8_t desc_idx;
+      
+      /* 从内存块描述符中匹配合适的内存块规格 */
+      for (desc_idx = 0; desc_idx < desc_type_num; desc_idx++) {
+	 if (size <= pdesc[desc_idx].block_size) {  // 从小往大后,找到后退出
+	    break;
+	 }
+      }
+
+   /* 若mem_block_desc的free_list中已经没有可用的mem_block,
+    * 就创建新的arena提供mem_block */
+      if (list_empty(&pdesc[desc_idx].free_list)) {
+	 temp = page_malloc(applicant, 1);       // 分配1页框做为arena
+	 if (temp == 0 || temp == 1) {
+	    lock_release(&mem_pool->lock);
+	    return NULL;
+	 }
+	 rie_memset(a, 0, PAGE_SIZE);
+
+    /* 对于分配的小块内存,将desc置为相应内存块描述符, 
+     * cnt置为此arena可用的内存块数,large置为false */
+	 a->pdesc = &pdesc[desc_idx];
+	 a->large_mode = 0;
+	 a->cnt = pdesc[desc_idx].block_per_arena;
+	 uint32_t block_idx;
+
+    intr_status old_status = intr_get_status();
+	rie_intr_disable();
+
+	 /* 开始将arena拆分成内存块,并添加到内存块描述符的free_list中 */
+	 for (block_idx = 0; block_idx < pdesc[desc_idx].block_per_arena; block_idx++) {
+	    b = arena2block(a, block_idx);
+	    ASSERT(!elem_search(&a->desc->free_list, &b->free_elem));
+	    list_append(&a->desc->free_list, &b->free_elem);	
+	 }
+	 rie_intr_set(old_status);
+      }    
+
+   /* 开始分配内存块 */
+   //todo
+      b = elem2pcb(struct mem_block, free_elem, offset(struct mem_block, free_elem));
+      rie_memset(b, 0, descs[desc_idx].block_size);
+
+      a = block2arena(b);  // 获取内存块b所在的arena
+      a->cnt--;		   // 将此arena中的空闲内存块数减1
+      //todo
+      lock_release(&mem_lock);
+      return (void*)b;
+   }
 }

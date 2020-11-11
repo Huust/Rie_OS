@@ -9,20 +9,22 @@
 #include "./interrupt.h"
 
 
-/*定义一个通用的函数类型
-方便后期广泛使用函数指针
-*/
-
 
 //宏函数，通过结构体成员地址反推结构体地址
 #define offset(struct_type, member)     \
 (uint32_t)(&((struct_type*)0)->member)      //这边仅仅是读操作,没有写所以不涉及非法访问
 
-
+/* 结构体成员反推结构体地址 
+struct_type结构体名称
+member成员名称
+offset(struct_type, member)
+*/
 #define elem2pcb(struct_type, member, offset)      \
 (struct_type*)((uint32_t)member - offset)
 
-
+/*定义一个通用的函数类型
+方便后期广泛使用函数指针
+*/
 typedef void thread_func(void* arg);
 /*task_status
 线程状态（目前仅有运行态和就绪态）
@@ -118,6 +120,9 @@ struct thread_pcb{
     struct list_element ready_list_elem;
 
     uint16_t pid;
+
+    /* 每个进程有自己独立的虚拟内存，所以也应该拥有各自的内存块描述符 */
+    mem_block_desc_t mem_block_desc[mem_block_desc_type];
 
     uint32_t bound_detect;
 };

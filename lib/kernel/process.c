@@ -17,6 +17,8 @@ void process_exec(void* proc_func)
 {   
     struct thread_pcb* cur_thread = get_running_thread();
 
+    mem_block_desc_init(cur_thread->mem_block_desc);
+
     /*pcb的栈指针从线程栈切换到进程栈，因为该函数执行前是对
         线程的初始化，其中已经初始化栈指针指向thread_stack栈底,
         所以执行下面代码后stack_ptr将指向intr_stack栈底

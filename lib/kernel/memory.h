@@ -47,6 +47,7 @@ struct physical_pool{
 #define PG_US_S 0   // U/S 属性位值,系统级
 #define PG_US_U 4   // U/S 属性位值,用户级
 
+#define desc_type_num     7
 
 /*
 内存申请对象memory applicant
@@ -57,8 +58,17 @@ enum mem_apply{
     APP_USER = 1,   //申请对象为user时==1
 };
 
+struct mem_block {
+    struct list_element free_elem;
+};
+struct mem_block_desc_t {
+    uint32_t block_size;    //该类型下每个内存块的大小
+    uint32_t block_per_arena;   //描述符下每个arena的block数量（固定）
+    struct list free_list;
+};
 
 
+void mem_block_desc_init(struct mem_block_desc_t* pdesc);
 void mem_struct_init(uint32_t all_mem,uint32_t page_num);
 void* get_kernel_page(uint32_t page_num);
 uint32_t addr_v2p(uint32_t vaddr);
