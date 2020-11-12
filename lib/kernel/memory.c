@@ -315,6 +315,107 @@ static void mem_map(uint32_t vaddr,uint32_t paddr)
 }
 
 
+/* 物理内存释放 */
+static void pmfree(uint32_t paddr)
+{
+    struct physical_pool* mem_pool;
+    uint32_t bitmap_idx = 0;
+    if (paddr >= user_pool.pool_start) {mem_pool = &user_pool;}
+    else {mem_pool = &kernel_pool;}
+
+    bitmap_idx = (paddr - mem_pool->pool_start) / PAGE_SIZE;
+
+    bitmap_setval(mem_pool->pool_bitmap, bitmap_idx, 0);
+}
+
+static void map_free(uint32_t vaddr)
+{
+    uint32_t vaddr_pte = get_vaddr_pte(vaddr);
+
+    *vaddr_pte = (*vaddr_pte)&(0xfffffffe); //最低位是P
+
+    /* 更新该pte在tlb的副本 */
+    asm volatile ("invlpg %0"::"m" (vaddr):"memory");
+}
+
+static void vmfree(enum mem_apply applicant, uint32_t vaddr, uint32_t page_cnt)
+{
+    struct virtual_pool* mem_pool;
+    struct thread_pcb* cur = get_running_thread();
+    uint32_t bitmap_idx = 0;
+
+    if (applicant == APP_KERNEL) {mem_pool = &kernel_heap;}
+    else {mem_pool = &cur->user_heap};
+
+    bitmap_idx = (vaddr - mem_pool->pool_start) / PAGE_SIZE;
+    
+    while (cnt -- ){
+        bitmap_setval(mem_pool->pool_bitmap, (bitmap_idx + cnt), 0);
+    }
+}
+
+
+/* 物理内存释放 + 虚拟内存释放 + 解除映射关系 */
+void mfree_page(enum mem_apply applicant, \
+                void* _vaddr, uint32_t pg_cnt) 
+{
+   uint32_t pg_phy_addr;
+   uint32_t vaddr = (int32_t)_vaddr, page_cnt = 0;
+   ASSERT(pg_cnt >=1 && vaddr % PG_SIZE == 0);
+   pg_phy_addr = addr_v2p(vaddr);
+
+/* 确保待释放的物理内存在低端1M+1k大小的页目录+1k大小的页表地址范围外 */
+   ASSERT((pg_phy_addr % PG_SIZE) == 0 && pg_phy_addr >= 0x102000);
+   
+/* 判断pg_phy_addr属于用户物理内存池还是内核物理内存池 */
+   if (pg_phy_addr >= user_pool.pool_start) {   // 位于user_pool内存池
+      vaddr -= PAGE_SIZE;
+      while (page_cnt < pg_cnt) {
+        vaddr += PAGE_SIZE;
+        pg_phy_addr = addr_v2p(vaddr);
+
+        /* 确保物理地址属于用户物理内存池 */
+        ASSERT((pg_phy_addr % PAGE_SIZE) == 0 && pg_phy_addr >= user_pool.pool_start);
+
+        /* 先将对应的物理页框归还到内存池 */
+        pmfree(pg_phy_addr);
+
+            /* 再从页表中清除此虚拟地址所在的页表项pte */
+        map_free(vaddr);
+
+        page_cnt++;
+      }
+   /* 清空虚拟地址的位图中的相应位 */
+      vmfree(applicant, _vaddr, pg_cnt);
+
+   } else {	     // 位于kernel_pool内存池
+      vaddr -= PAGE_SIZE;	      
+      while (page_cnt < pg_cnt) {
+	 vaddr += PAGE_SIZE;
+	 pg_phy_addr = addr_v2p(vaddr);
+      /* 确保待释放的物理内存只属于内核物理内存池 */
+	 ASSERT((pg_phy_addr % PAGE_SIZE) == 0 && \
+	       pg_phy_addr >= kernel_pool.phy_addr_start && \
+	       pg_phy_addr < user_pool.phy_addr_start);
+	
+	 /* 先将对应的物理页框归还到内存池 */
+	 pmfree(pg_phy_addr);
+
+         /* 再从页表中清除此虚拟地址所在的页表项pte */
+	 map_free(vaddr);
+
+	 page_cnt++;
+      }
+   /* 清空虚拟地址的位图中的相应位 */
+      vmfree(applicant, _vaddr, pg_cnt);
+   }
+}
+
+
+
+
+
+
 /*page_malloc
 @function:
     整合了按页分配需要的函数：虚拟地址分配、物理地址分配、页表映射
@@ -347,7 +448,8 @@ static uint32_t page_malloc(enum mem_apply applicant, uint32_t page_num)
         if(page_paddr == 0) {
             /*因为物理页每次分配一页，所以可能在中途就没有空闲页了
             此时需要将之前已做好映射的内存全部回滚*/
-            //todo:在之后的内存回收部分将完成虚拟页、物理页的回收
+            //todo
+            mfree_page(applicant, page_vaddr, (page_num - cnt));
             return 1;
         }
         mem_map(page_vaddr + offset,page_paddr);
@@ -518,13 +620,11 @@ void* sys_malloc(uint32_t size)
       }    
 
    /* 开始分配内存块 */
-   //todo
       b = elem2pcb(struct mem_block, free_elem, offset(struct mem_block, free_elem));
       rie_memset(b, 0, descs[desc_idx].block_size);
 
       a = block2arena(b);  // 获取内存块b所在的arena
       a->cnt--;		   // 将此arena中的空闲内存块数减1
-      //todo
       lock_release(&mem_lock);
       return (void*)b;
    }
