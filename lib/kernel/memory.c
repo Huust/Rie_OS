@@ -153,7 +153,7 @@ void mem_struct_init(uint32_t all_mem,uint32_t page_num)
     physical_pool_init(all_mem, page_num);
     kernel_virtual_pool_init();
     lock_init(&mem_lock);
-    mem_block_desc_init(mem_block_desc);
+    // mem_block_desc_init(mem_block_desc);
     rie_puts("mem_struct_init done\r\n");
 }
 
@@ -247,6 +247,16 @@ uint32_t addr_v2p(uint32_t vaddr)
 }
 
 
+static struct mem_block* arena2block(struct arena* a, uint32_t idx) {
+  return (struct mem_block*)((uint32_t)a + sizeof(struct arena) + idx * a->pdesc->block_size);
+}
+
+/* 返回内存块b所在的arena地址 */
+static struct arena* block2arena(struct mem_block* b) {
+   return (struct arena*)((uint32_t)b & 0xfffff000);
+}
+
+
 /*
 @function:
     物理页的分配(每次调用只能分配1页)
@@ -325,12 +335,12 @@ static void pmfree(uint32_t paddr)
 
     bitmap_idx = (paddr - mem_pool->pool_start) / PAGE_SIZE;
 
-    bitmap_setval(mem_pool->pool_bitmap, bitmap_idx, 0);
+    bitmap_setval(&mem_pool->pool_bitmap, bitmap_idx, 0);
 }
 
 static void map_free(uint32_t vaddr)
 {
-    uint32_t vaddr_pte = get_vaddr_pte(vaddr);
+    uint32_t* vaddr_pte = (uint32_t*)get_vaddr_pte(vaddr);
 
     *vaddr_pte = (*vaddr_pte)&(0xfffffffe); //最低位是P
 
@@ -345,12 +355,12 @@ static void vmfree(enum mem_apply applicant, uint32_t vaddr, uint32_t page_cnt)
     uint32_t bitmap_idx = 0;
 
     if (applicant == APP_KERNEL) {mem_pool = &kernel_heap;}
-    else {mem_pool = &cur->user_heap};
+    else {mem_pool = &cur->user_heap;}
 
     bitmap_idx = (vaddr - mem_pool->pool_start) / PAGE_SIZE;
     
-    while (cnt -- ){
-        bitmap_setval(mem_pool->pool_bitmap, (bitmap_idx + cnt), 0);
+    while (page_cnt -- ){
+        bitmap_setval(&mem_pool->pool_bitmap, (bitmap_idx + page_cnt), 0);
     }
 }
 
@@ -361,11 +371,11 @@ void mfree_page(enum mem_apply applicant, \
 {
    uint32_t pg_phy_addr;
    uint32_t vaddr = (int32_t)_vaddr, page_cnt = 0;
-   ASSERT(pg_cnt >=1 && vaddr % PG_SIZE == 0);
+   ASSERT(pg_cnt >=1 && vaddr % PAGE_SIZE == 0);
    pg_phy_addr = addr_v2p(vaddr);
 
 /* 确保待释放的物理内存在低端1M+1k大小的页目录+1k大小的页表地址范围外 */
-   ASSERT((pg_phy_addr % PG_SIZE) == 0 && pg_phy_addr >= 0x102000);
+   ASSERT((pg_phy_addr % PAGE_SIZE) == 0 && pg_phy_addr >= 0x102000);
    
 /* 判断pg_phy_addr属于用户物理内存池还是内核物理内存池 */
    if (pg_phy_addr >= user_pool.pool_start) {   // 位于user_pool内存池
@@ -386,7 +396,7 @@ void mfree_page(enum mem_apply applicant, \
         page_cnt++;
       }
    /* 清空虚拟地址的位图中的相应位 */
-      vmfree(applicant, _vaddr, pg_cnt);
+      vmfree(applicant, (uint32_t)_vaddr, pg_cnt);
 
    } else {	     // 位于kernel_pool内存池
       vaddr -= PAGE_SIZE;	      
@@ -395,8 +405,8 @@ void mfree_page(enum mem_apply applicant, \
 	 pg_phy_addr = addr_v2p(vaddr);
       /* 确保待释放的物理内存只属于内核物理内存池 */
 	 ASSERT((pg_phy_addr % PAGE_SIZE) == 0 && \
-	       pg_phy_addr >= kernel_pool.phy_addr_start && \
-	       pg_phy_addr < user_pool.phy_addr_start);
+	       pg_phy_addr >= kernel_pool.pool_start && \
+	       pg_phy_addr < user_pool.pool_start);
 	
 	 /* 先将对应的物理页框归还到内存池 */
 	 pmfree(pg_phy_addr);
@@ -407,12 +417,53 @@ void mfree_page(enum mem_apply applicant, \
 	 page_cnt++;
       }
    /* 清空虚拟地址的位图中的相应位 */
-      vmfree(applicant, _vaddr, pg_cnt);
+      vmfree(applicant, (uint32_t)_vaddr, pg_cnt);
    }
 }
 
 
+void sys_free(void* vaddr)
+{
+    struct virtual_pool* mem_pool;
+    enum mem_apply applicant;
+    struct thread_pcb* cur = get_running_thread();
+    if (cur->pd_vaddr == NULL) {
+        applicant = APP_KERNEL;
+        mem_pool = &kernel_heap;
+    } else {
+        applicant = APP_USER;
+        mem_pool = &cur->user_heap;
+    }
 
+    struct mem_block* b = (struct mem_block*)vaddr;
+    struct arena* a = block2arena(b);
+
+    /* 首先判断addr是不是指向一个内存块 */
+    ASSERT(a->large_mode==1 || a->large_mode==0);
+
+    if (a->large_mode) {
+        mfree_page(applicant, vaddr, (a->cnt));
+    } else {    /* size <= 1024 */
+        if(elem_search(&a->pdesc->free_list, &b->free_elem)){
+            /* 判断要被释放的内存是不是本身就是free memory */
+            PANIC("you can't free unused memory");  
+        }
+
+        list_append(&a->pdesc->free_list, &b->free_elem);
+        a->cnt ++;
+
+        if (a->cnt == a->pdesc->block_per_arena) {
+            uint32_t block_idx;
+            for (block_idx = 0;block_idx <= a->pdesc->block_per_arena;block_idx++){
+                struct mem_block* b = arena2block(a, block_idx);
+                ASSERT(elem_search(&a->pdesc->free_list, &b->free_elem));
+                list_remove(&b->free_elem);
+            }
+            mfree_page(applicant, (void*)a, 1);
+        }
+
+    }
+}
 
 
 
@@ -447,9 +498,8 @@ static uint32_t page_malloc(enum mem_apply applicant, uint32_t page_num)
         page_paddr = pmalloc(pool);
         if(page_paddr == 0) {
             /*因为物理页每次分配一页，所以可能在中途就没有空闲页了
-            此时需要将之前已做好映射的内存全部回滚*/
-            //todo
-            mfree_page(applicant, page_vaddr, (page_num - cnt));
+            此时需要将之前已做好映射的内存全部回滚释放*/
+            mfree_page(applicant, (void*)page_vaddr, (page_num - cnt));
             return 1;
         }
         mem_map(page_vaddr + offset,page_paddr);
@@ -520,16 +570,6 @@ void* get_user_page(uint32_t page_num)
 }
 
 
-static struct mem_block* arena2block(struct arena* a, uint32_t idx) {
-  return (struct mem_block*)((uint32_t)a + sizeof(struct arena) + idx * a->pdesc->block_size);
-}
-
-/* 返回内存块b所在的arena地址 */
-static struct arena* block2arena(struct mem_block* b) {
-   return (struct arena*)((uint32_t)b & 0xfffff000);
-}
-
-
 void* sys_malloc(uint32_t size) 
 {
    enum mem_apply applicant;
@@ -595,7 +635,7 @@ void* sys_malloc(uint32_t size)
       if (list_empty(&pdesc[desc_idx].free_list)) {
 	 temp = page_malloc(applicant, 1);       // 分配1页框做为arena
 	 if (temp == 0 || temp == 1) {
-	    lock_release(&mem_pool->lock);
+	    lock_release(&mem_lock);
 	    return NULL;
 	 }
 	 rie_memset(a, 0, PAGE_SIZE);
@@ -613,15 +653,16 @@ void* sys_malloc(uint32_t size)
 	 /* 开始将arena拆分成内存块,并添加到内存块描述符的free_list中 */
 	 for (block_idx = 0; block_idx < pdesc[desc_idx].block_per_arena; block_idx++) {
 	    b = arena2block(a, block_idx);
-	    ASSERT(!elem_search(&a->desc->free_list, &b->free_elem));
-	    list_append(&a->desc->free_list, &b->free_elem);	
+	    ASSERT(!elem_search(&a->pdesc->free_list, &b->free_elem));
+	    list_append(&a->pdesc->free_list, &b->free_elem);	
 	 }
 	 rie_intr_set(old_status);
       }    
 
    /* 开始分配内存块 */
-      b = elem2pcb(struct mem_block, free_elem, offset(struct mem_block, free_elem));
-      rie_memset(b, 0, descs[desc_idx].block_size);
+    
+      b = elem2pcb(struct mem_block, list_pop(&pdesc->free_list), offset(struct mem_block, free_elem));
+      rie_memset(b, 0, pdesc[desc_idx].block_size);
 
       a = block2arena(b);  // 获取内存块b所在的arena
       a->cnt--;		   // 将此arena中的空闲内存块数减1

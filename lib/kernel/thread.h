@@ -122,7 +122,7 @@ struct thread_pcb{
     uint16_t pid;
 
     /* 每个进程有自己独立的虚拟内存，所以也应该拥有各自的内存块描述符 */
-    mem_block_desc_t mem_block_desc[mem_block_desc_type];
+    struct mem_block_desc_t mem_block_desc[desc_type_num];
 
     uint32_t bound_detect;
 };
