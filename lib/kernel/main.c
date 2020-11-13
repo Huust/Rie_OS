@@ -47,13 +47,13 @@ void thread_b(void* arg)
 void proc_a(void)
 {
     char* name = "proc_a";
-    printf(" I am %s, my pid:%d\r\n", name, get_pid());
+    printf("I am %s, my pid:%d\r\n", "proc_a", get_pid());
     while(1);
 }
 
 void proc_b(void)
 {
     char* name = "proc_b";
-    printf(" I am %s, my pid:%d\r\n", name, get_pid());
+    printf("I am %s, my pid:%d\r\n", "proc_b", get_pid());
     while(1);
 }

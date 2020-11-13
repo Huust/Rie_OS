@@ -15,6 +15,8 @@ void process_activate(struct thread_pcb* pthread);
 */
 void process_exec(void* proc_func)
 {   
+    rie_intr_disable(); //最后执行函数前会将if位设为1，所以可以先关掉中断；也防止后面的初始化被中断打断
+    
     struct thread_pcb* cur_thread = get_running_thread();
 
     mem_block_desc_init(cur_thread->mem_block_desc);
@@ -40,13 +42,12 @@ void process_exec(void* proc_func)
     proc_stack->eip = proc_func;    /* 要求proc_func返回值和参数必须都为void */
 
     proc_stack->esp_dummy = proc_stack->ebp = 0;
-
-    proc_stack->esp = (void*)(get_a_page(APP_USER, USER_STACK3_VADDR) + PAGE_SIZE);
-
+    // rie_puts("here is 1 !!!\r\n");
+    proc_stack->esp = (void*)((uint32_t)get_a_page(APP_USER, USER_STACK3_VADDR) + PAGE_SIZE);
+    // rie_puts("here is 2 !!!\r\n");
     proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_MBS | EFLAGS_IF_1);
     /* 使用内联汇编，第一步：将esp设置为proc_stack地址
     第二步：调用kernel.asm中的intr_exit函数*/
-
     asm volatile ("movl %0, %%esp; jmp intr_exit" \
     : : "g" (proc_stack) : "memory");
 
@@ -59,7 +60,6 @@ void pt_activate(struct thread_pcb* pthread)
     if (pthread->pd_vaddr != NULL) {
         pd_paddr = addr_v2p((uint32_t)(pthread->pd_vaddr));
     }
-
     //内联汇编将新的页表物理地址载入CR3
     asm volatile ("movl %0, %%cr3" : : "r" (pd_paddr) : "memory");
 }
@@ -82,17 +82,20 @@ void process_activate(struct thread_pcb* pthread)
     进程共享内核
     @return:
         pd_vaddr页目录表的虚拟地址
+    @notes:
+        我们发现只建立页目录表而没有页表，这是因为当你通过
+        页目录表寻址对应的页表时，若发现没有，内存会自己创建一份页表
+        所以就不需要我们手动创建了
 */
-uint32_t* create_page_dir(void) {
-    uint32_t* pd_vaddr = get_kernel_page(1);
+void* create_page_dir(void) {
+    void* pd_vaddr = get_kernel_page(1);
     ASSERT(pd_vaddr != NULL);
 
     // 将内核的页表复制到进程页目录项中，实现内核的共享
     rie_memcpy((uint32_t*) ((uint32_t) pd_vaddr), (uint32_t*) (0xfffff000), 4096);
-
     // 设置最后一项页表的地址为页目录地址
     uint32_t new_page_dir_phy_addr = addr_v2p((uint32_t) pd_vaddr);
-    pd_vaddr[1023] = (new_page_dir_phy_addr | PG_US_U | PG_RW_W | PG_P_1);
+    ((uint32_t*)pd_vaddr)[1023] = (new_page_dir_phy_addr | PG_US_U | PG_RW_W | PG_P_1);
     return pd_vaddr;
 }
 

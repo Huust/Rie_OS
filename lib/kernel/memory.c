@@ -299,9 +299,9 @@ static void mem_map(uint32_t vaddr,uint32_t paddr)
         //那么应该接着判断pte是否存在
         if((*vaddr_pte)&PG_P_1){    /*pte映射的物理页也存在*/
 
-            //报错，这代表申请的虚拟地址已经映射到了某一物理页上，不能重复申请
-            rie_puts("another vitural address has mapped,pte repeat!\r\n");
-            ASSERT((*vaddr_pte)&PG_P_1 == 1);
+            //报错，这代表虚拟地址已经映射到了某一物理页上，不能再映射到另一个物理页
+            rie_puts("vaddr has mapped another paddr,pte repeat!\r\n");
+            ASSERT((*vaddr_pte)&PG_P_1 != 1);
         
         }else{                    /*pte还没有映射到某一个物理页上*/
 
@@ -503,6 +503,8 @@ static uint32_t page_malloc(enum mem_apply applicant, uint32_t page_num)
             return 1;
         }
         mem_map(page_vaddr + offset,page_paddr);
+        // rie_puti(*((uint32_t*)get_vaddr_pde() + 1023));
+        // rie_puts("\r\n");
         offset += PAGE_SIZE;
     }
     
